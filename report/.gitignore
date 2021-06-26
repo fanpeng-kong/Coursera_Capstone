@@ -6,7 +6,6 @@
 *.tex
 
 ## output pdf
-/*.pdf
 /*.html
 
 ## tikz external

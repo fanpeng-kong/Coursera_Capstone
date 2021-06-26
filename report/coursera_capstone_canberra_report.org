@@ -947,7 +947,7 @@ ax.plot(K, distortions, 'bx-')
 ax.set_xlabel('k')
 ax.set_ylabel('Distortion')
 ax.set_title('k-means on venue category dataset.')
-plt.savefig('figures/kmeans-optimal-master.pdf')
+plt.savefig('figures/kmeans-optimal-master.jpg')
 #+END_SRC
 
 #+results:
@@ -1009,7 +1009,7 @@ plt.plot(K, distortions, 'bx-')
 plt.xlabel('k')
 plt.ylabel('Distortion')
 plt.title('k-means on venue category dataset.')
-plt.savefig('figures/kmeans-optimal-venue.pdf')
+plt.savefig('figures/kmeans-optimal-venue.jpg')
 plt.show()
 #+END_SRC
 
