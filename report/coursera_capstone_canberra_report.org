@@ -22,10 +22,12 @@
 #+subtitle:
 #+latex_compiler: lualatex
 
-** Introduction: Business Problem
-   :PROPERTIES:
-   :CUSTOM_ID: introduction-business-problem-
-   :END:
+#+PROPERTY: header-args :eval never-export
+
+* Introduction: Business Problem
+  :PROPERTIES:
+  :CUSTOM_ID: introduction-business-problem-
+  :END:
 
 Canberra, the capital city of Australia, is often known as "The Bush
 Capital" to Aussies (and yes, we put that on our vehicle number plates).
@@ -39,7 +41,7 @@ not only low compared to other capital cities around the world but also
 only ranks 6 among all the 8 Australia capitals.
 
 However for any new settlers in Canberra, it could be a bit hard at the
-begining to find the right area to live in. Canberra has a total of more
+beginning to find the right area to live in. Canberra has a total of more
 than 100 local suburbs and 7 districts (or town centers as Canberrans
 refere to) and most of the facities, entertaiments and large shopping
 centers are located in these town centers. And if you ask any Canberran
@@ -57,10 +59,10 @@ price, travel distance to town centers etc. In this study, I will try to
 find the answer for them using the data science skills that I have
 acquired during the courses.
 
-** Data
-   :PROPERTIES:
-   :CUSTOM_ID: data-
-   :END:
+* Data
+  :PROPERTIES:
+  :CUSTOM_ID: data-
+  :END:
 
 First, I set out the required dataset in order to characterise the
 suburbs. As the choice of the interesting suburb to purchase property is
@@ -73,16 +75,14 @@ I will exercise different methods from webscraping to open datasets to
 collect the requred data for my analysis:
 
 - For the list of town centers and suburbs in Canberra, I will use
-  webscrping to extract relevant fileds from the table found in the
+  webscraping to extract relevant fields from the table found in the
   Wikipedia page
-  [[https://en.wikipedia.org/wiki/List_of_Canberra_suburbs][List of
-  Canberra Suburbs]]
+  [[https://en.wikipedia.org/wiki/List_of_Canberra_suburbs][List of Canberra Suburbs]]
 
 - The latitude and longitude of town centers and suburbs will be
   retrieved using the geocoder library, after which the distance from
   suburb to town center can be calculated using the
-  [[https://developers.google.com/maps/documentation/distance-matrix][Google
-  Distance Matrix API]] or the Python
+  [[https://developers.google.com/maps/documentation/distance-matrix][Google Distance Matrix API]] or the Python
   [[https://pypi.org/project/haversine/][Haversine]] library.
 
 - The number and type of venues around each suburb will be retrieved by
@@ -95,48 +95,47 @@ collect the requred data for my analysis:
 Steps to retrive these data will be explained in more details below but
 first let us import some of the commonly used Python libraries.
 
-#+BEGIN_SRC python
-  import numpy as np # library to handle data in a vectorized manner
-  import matplotlib.pyplot as plt
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+import numpy as np # library to handle data in a vectorized manner
+import matplotlib.pyplot as plt
 
-  import pandas as pd # library for data analsysis
-  pd.set_option('display.max_columns', None)
-  pd.set_option('display.max_rows', None)
+import pandas as pd # library for data analsysis
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
 
-  import seaborn as sns
+import seaborn as sns
 
-  from scipy.spatial.distance import cdist
+from scipy.spatial.distance import cdist
 
-  import json # library to handle JSON files
+import json # library to handle JSON files
 
-  #!pip install geopy
-  from geopy.geocoders import Nominatim # convert an address into latitude and longitude values
+#!pip install geopy
+from geopy.geocoders import Nominatim # convert an address into latitude and longitude values
 
-  import requests # library to handle requests
-  from bs4 import BeautifulSoup
-  from pandas.io.json import json_normalize # tranform JSON file into a pandas dataframe
+import requests # library to handle requests
+from bs4 import BeautifulSoup
+from pandas.io.json import json_normalize # tranform JSON file into a pandas dataframe
 
-  # Matplotlib and associated plotting modules
-  import matplotlib.cm as cm
-  import matplotlib.colors as colors
+# Matplotlib and associated plotting modules
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 
-  # import k-means from clustering stage
-  from sklearn.cluster import KMeans
+# import k-means from clustering stage
+from sklearn.cluster import KMeans
 
-  #!pip install folium=0.5.0|
-  import folium # map rendering library
+#!pip install folium=0.5.0|
+import folium # map rendering library
 
-  print('Libraries imported.')
+print('Libraries imported.')
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  Libraries imported.
-#+END_EXAMPLE
+#+results:
+: Libraries imported.
 
-*** Get towncenter and suburbs
-    :PROPERTIES:
-    :CUSTOM_ID: get-towncenter-and-suburbs
-    :END:
+** Get towncenter and suburbs
+   :PROPERTIES:
+   :CUSTOM_ID: get-towncenter-and-suburbs
+   :END:
 
 First we need to get a list of town centers and suburbs which belong to
 it. It turns out that this dataset is not easily to be found online in a
@@ -144,32 +143,33 @@ nicly formated form like .csv or spreadsheet. So we go to the Wikipedia
 page of [[https://en.wikipedia.org/wiki/Suburbs_of_Canberra][Suburbs of
 Canberra]] and retrieve the data from the bottom tables:
 
-#+BEGIN_SRC python
-  url = "https://en.wikipedia.org/wiki/Suburbs_of_Canberra"
-  data = requests.get(url).text
-  soup = BeautifulSoup(data, 'html.parser')
-  for table in soup.find_all('table'):
-      print(table.get('class'))
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+url = "https://en.wikipedia.org/wiki/Suburbs_of_Canberra"
+data = requests.get(url).text
+soup = BeautifulSoup(data, 'html.parser')
+for table in soup.find_all('table'):
+    print(table.get('class'))
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  ['box-Unreferenced_section', 'plainlinks', 'metadata', 'ambox', 'ambox-content', 'ambox-Unreferenced']
-  ['wikitable']
-  ['nowraplinks', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'mw-collapsible', 'mw-collapsed', 'navbox-subgroup']
-  ['nowraplinks', 'navbox-subgroup']
-  ['nowraplinks', 'navbox-subgroup']
-  ['nowraplinks', 'mw-collapsible', 'mw-collapsed', 'navbox-subgroup']
-  ['nowraplinks', 'navbox-subgroup']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-  ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
-#+END_EXAMPLE
+#+results:
+#+begin_example
+['box-Unreferenced_section', 'plainlinks', 'metadata', 'ambox', 'ambox-content', 'ambox-Unreferenced']
+['wikitable']
+['nowraplinks', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'mw-collapsible', 'mw-collapsed', 'navbox-subgroup']
+['nowraplinks', 'navbox-subgroup']
+['nowraplinks', 'navbox-subgroup']
+['nowraplinks', 'mw-collapsible', 'mw-collapsed', 'navbox-subgroup']
+['nowraplinks', 'navbox-subgroup']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
+#+end_example
 
 A small challenge here is that those foldable tabels are nested and
 therefore same information may occure at different hierachy levels.
@@ -179,10 +179,12 @@ suburbs together with their corresponding town centers:
 
 [[file:figures/canberra_suburbs_wiki.png]]
 
-#+BEGIN_SRC python
-  tables = soup.find_all('table',  {'class': ['nowraplinks'] and ['navbox-subgroup']})
-  table_can = tables[1]
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+tables = soup.find_all('table',  {'class': ['nowraplinks'] and ['navbox-subgroup']})
+table_can = tables[1]
 #+END_SRC
+
+#+results:
 
 For Belconnen to Woden Valley, each =tr= element has a =th= tag which
 includes the /Towncenter/ name and a =td= tag which includes an
@@ -193,16 +195,18 @@ unordered list =ul= tag consisting of its suburbs.
 Let's define a function to retrieve the towncenter and suburbs from a
 given row:
 
-#+BEGIN_SRC python
-  # Get towncenter and surburbs from each table row
-  def get_suburbs(trow):
-      towncenter = trow.find('th').text
-      suburbs = []
-      for l in trow.find('td').find_all('li'):
-          suburbs.append(l.text)
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# Get towncenter and surburbs from each table row
+def get_suburbs(trow):
+    towncenter = trow.find('th').text
+    suburbs = []
+    for l in trow.find('td').find_all('li'):
+        suburbs.append(l.text)
 
-      return towncenter, suburbs
+    return towncenter, suburbs
 #+END_SRC
+
+#+results:
 
 We would also like to separate the /Canberra Central/ district into
 /North Canberra/ and /South Canberra/ for our analysis. Therefore we
@@ -210,28 +214,21 @@ skip the outer row for /Canberra Central/ and instead using inner rows
 corresponding to /North Canberra/ and /South Canberra/. Let's create a
 Pandas DataFrame to store the results:
 
-#+BEGIN_SRC python
-  # createing the data frame
-  df = pd.DataFrame(columns=['Towncenter', 'Suburbs'])
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# createing the data frame
+df = pd.DataFrame(columns=['Towncenter', 'Suburbs'])
 
-  for row in table_can.tbody.find_all('tr'):
-      if row.find('th').text == 'Canberra Central':
-          pass
-      else:
-          towncenter, suburbs = get_suburbs(row)
-          df = df.append({'Towncenter': towncenter, 'Suburbs': suburbs}, ignore_index=True)
+for row in table_can.tbody.find_all('tr'):
+    if row.find('th').text == 'Canberra Central':
+        pass
+    else:
+        towncenter, suburbs = get_suburbs(row)
+        df = df.append({'Towncenter': towncenter, 'Suburbs': suburbs}, ignore_index=True)
 
-  df.head()
+# df.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-          Towncenter                                            Suburbs
-  0   North Canberra  [Acton, Ainslie, Braddon, Campbell, City, Dick...
-  1   South Canberra  [Barton, Capital Hill, Deakin, Forrest, Fyshwi...
-  2        Belconnen  [Aranda, Belconnen, Bruce, Charnwood, Cook, Du...
-  3        Gungahlin  [Amaroo, Bonner, Casey, Crace, Forde, Franklin...
-  4  Molonglo Valley  [Coombs, Denman Prospect, Molonglo, Whitlam, W...
-#+END_EXAMPLE
+#+results:
 
 Now seperate each suburb to individual rows and create a new Pandas
 DataFrame =df_can=. This will be our master DataFrame for the required
@@ -239,36 +236,29 @@ datasets and will be updated as new information is added. Hereafter we
 store the =df_can= to individual .csv files at different stages. This
 will allow us to read the datasets from stored files instead of
 webscraping again for future runs should we wish (for speed or data
-consistancy concerns).
+consistency concerns).
 
-#+BEGIN_SRC python
-  # convert suburb list elements to separate rows
-  # https://www.geeksforgeeks.org/convert-list-like-column-elements-to-separate-rows-in-pandas/
-  df_can = df['Suburbs'].apply(pd.Series) \
-                      .merge(df, right_index=True, left_index=True) \
-                      .drop(['Suburbs'], axis=1) \
-                      .melt(id_vars=['Towncenter'], value_name='Suburb') \
-                      .drop('variable', axis=1) \
-                      .dropna()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# convert suburb list elements to separate rows
+# https://www.geeksforgeeks.org/convert-list-like-column-elements-to-separate-rows-in-pandas/
+df_can = df['Suburbs'].apply(pd.Series) \
+                    .merge(df, right_index=True, left_index=True) \
+                    .drop(['Suburbs'], axis=1) \
+                    .melt(id_vars=['Towncenter'], value_name='Suburb') \
+                    .drop('variable', axis=1) \
+                    .dropna()
 
-  df_can = df_can.sort_values('Suburb', ascending=True).reset_index(drop=True)
-  df_can.to_csv('data/canberra_suburbs.csv', index=False)
-  df_can.head()
+df_can = df_can.sort_values('Suburb', ascending=True).reset_index(drop=True)
+df_can.to_csv('data/canberra_suburbs.csv', index=False)
+# df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-         Towncenter   Suburb
-  0  North Canberra    Acton
-  1  North Canberra  Ainslie
-  2       Gungahlin   Amaroo
-  3       Belconnen   Aranda
-  4     Tuggeranong    Banks
-#+END_EXAMPLE
+#+results:
 
-*** Add postcode
-    :PROPERTIES:
-    :CUSTOM_ID: add-postcode
-    :END:
+** Add postcode
+   :PROPERTIES:
+   :CUSTOM_ID: add-postcode
+   :END:
 
 Although the post code for each suburb is not directly used in this
 analysis, it is necessary to collect them as we will use it later when
@@ -278,200 +268,155 @@ can be found on
 website]]. Let's download the dataset and read them into a Pandas
 DataFrame:
 
-#+BEGIN_SRC python
-  #df_can = pd.read_csv('data/canberra_suburbs.csv')
-  df_post = pd.read_csv('data/australian_postcodes.csv')
-  df_post_act = df_post[(df_post['state'] == 'ACT')][['postcode', 'locality']]
-  df_post_act.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+#df_can = pd.read_csv('data/canberra_suburbs.csv')
+df_post = pd.read_csv('data/australian_postcodes.csv')
+df_post_act = df_post[(df_post['state'] == 'ACT')][['postcode', 'locality']]
+# df_post_act.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-        postcode                        locality
-  0          200                             ANU
-  1          200  Australian National University
-  3750      2540                   HMAS CRESWELL
-  3755      2540                      JERVIS BAY
-  4243      2600                          BARTON
-#+END_EXAMPLE
+#+results:
 
 Next filter the postcode for Canberra suburbs and merge them into our
 previous =df_can= DataFrame:
 
-#+BEGIN_SRC python
-  df_can = pd.merge(df_can, df_post_act, left_on=df_can['Suburb'].str.upper(), right_on=df_post_act['locality'].str.upper(), how='left').fillna(0)
-  df_can.drop(['key_0', 'locality'], axis=1, inplace=True)
-  df_can.rename(columns={'postcode': 'Postcode'}, inplace=True)
-  df_can['Postcode'] = df_can['Postcode'].astype(int)
-  df_can = df_can.drop_duplicates(subset=['Suburb'], keep='first')
-  df_can.to_csv('data/canberra_suburbs_postcode.csv', index=False)
-  df_can.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_can = pd.merge(df_can, df_post_act, left_on=df_can['Suburb'].str.upper(), right_on=df_post_act['locality'].str.upper(), how='left').fillna(0)
+df_can.drop(['key_0', 'locality'], axis=1, inplace=True)
+df_can.rename(columns={'postcode': 'Postcode'}, inplace=True)
+df_can['Postcode'] = df_can['Postcode'].astype(int)
+df_can = df_can.drop_duplicates(subset=['Suburb'], keep='first')
+df_can.to_csv('data/canberra_suburbs_postcode.csv', index=False)
+# df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-         Towncenter   Suburb  Postcode
-  0  North Canberra    Acton      2601
-  1  North Canberra  Ainslie      2602
-  2       Gungahlin   Amaroo      2914
-  3       Belconnen   Aranda      2614
-  4     Tuggeranong    Banks      2906
-#+END_EXAMPLE
+#+results:
 
-*** Add geo location
-    :PROPERTIES:
-    :CUSTOM_ID: add-geo-location
-    :END:
+** Add geo location
+   :PROPERTIES:
+   :CUSTOM_ID: add-geo-location
+   :END:
 
 To get the latitude and longitude information for each suburb, let's use
 the =geopy= library demonstrated in previous labs:
 
-#+BEGIN_SRC python
-  from geopy.geocoders import Nominatim
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+from geopy.geocoders import Nominatim
 #+END_SRC
 
-#+BEGIN_SRC python
-  #df_can = pd.read_csv('data/canberra_suburbs_postcode.csv')
-  geolocator = Nominatim(user_agent="act_agent")
-  print('Obtaining latitude and longitude: ', end='')
-  df_can['Latitude'] = 0.0
-  df_can['Longitude'] = 0.0
-  for index, row in df_can.iterrows():    
-      address = '{}, ACT'.format(row['Suburb'])
-      location = geolocator.geocode(address)
-      #df_can['Latitude'][index] = location.latitude
-      #df_can['Longitude'][index] = location.longitude
-      df_can.loc[index, 'Latitude'] = location.latitude
-      df_can.loc[index, 'Longitude'] = location.longitude
-      print(' .', end='')
+#+results:
 
-  print(' done.')
-  df_can.to_csv('data/canberra_suburbs_geo.csv', index=False)
-  df_can.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+#df_can = pd.read_csv('data/canberra_suburbs_postcode.csv')
+geolocator = Nominatim(user_agent="act_agent")
+print('Obtaining latitude and longitude: ', end='')
+df_can['Latitude'] = 0.0
+df_can['Longitude'] = 0.0
+for index, row in df_can.iterrows():    
+    address = '{}, ACT'.format(row['Suburb'])
+    location = geolocator.geocode(address)
+    df_can.loc[index, 'Latitude'] = location.latitude
+    df_can.loc[index, 'Longitude'] = location.longitude
+    print(' .', end='')
+
+print(' done.')
+df_can.to_csv('data/canberra_suburbs_geo.csv', index=False)
+# df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  Obtaining latitude and longitude:  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . done.
-#+END_EXAMPLE
-
-#+BEGIN_EXAMPLE
-         Towncenter   Suburb  Postcode   Latitude   Longitude
-  0  North Canberra    Acton      2601 -35.285232  149.112968
-  1  North Canberra  Ainslie      2602 -35.262195  149.147880
-  2       Gungahlin   Amaroo      2914 -35.169587  149.128021
-  3       Belconnen   Aranda      2614 -35.258055  149.080426
-  4     Tuggeranong    Banks      2906 -35.471889  149.099657
-#+END_EXAMPLE
-
-**** Add towncenters
-     :PROPERTIES:
-     :CUSTOM_ID: add-towncenters
-     :END:
+*** Add towncenters
+    :PROPERTIES:
+    :CUSTOM_ID: add-towncenters
+    :END:
 
 Let's create a seperate DataFrame =df_town= for the towncenters and
 their latitude and longitude information. First check if we have all the
 8 towncenters included in our master DataFrame:
 
-#+BEGIN_SRC python
-  df_can['Towncenter'].unique()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_can['Towncenter'].unique()
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-  array(['North Canberra', 'Gungahlin', 'Belconnen', 'Tuggeranong',
-         'South Canberra', 'Weston Creek', 'Woden Valley',
-         'Molonglo Valley'], dtype=object)
-#+END_EXAMPLE
 
 Looks all right. Now we use geocoder to populate the latitude and
 longitude for all the towncenters and store that to a .csv file too.
 
-#+BEGIN_SRC python
-  df_town = pd.DataFrame(columns=['Towncenter', 'Latitude', 'Longitude'])
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_town = pd.DataFrame(columns=['Towncenter', 'Latitude', 'Longitude'])
 
-  for towncenter in df_can['Towncenter'].unique():
-      address = '{}, ACT'.format(towncenter)
-      location = geolocator.geocode(address)
-      df_town = df_town.append({'Towncenter': towncenter, 'Latitude': location.latitude, 'Longitude': location.longitude}, ignore_index=True)
-      
-  df_town.to_csv('data/canberra_towncenters.csv', index=False)    
-  df_town.head()
+for towncenter in df_can['Towncenter'].unique():
+    address = '{}, ACT'.format(towncenter)
+    location = geolocator.geocode(address)
+    df_town = df_town.append({'Towncenter': towncenter, 'Latitude': location.latitude, 'Longitude': location.longitude}, ignore_index=True)
+    
+df_town.to_csv('data/canberra_towncenters.csv', index=False)    
+#df_town.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-         Towncenter   Latitude   Longitude
-  0  North Canberra -35.264383  149.132543
-  1       Gungahlin -35.178878  149.123653
-  2       Belconnen -35.227434  149.043145
-  3     Tuggeranong -35.420977  149.092134
-  4  South Canberra -35.316170  149.131307
-#+END_EXAMPLE
-
-**** Visualisation
-     :PROPERTIES:
-     :CUSTOM_ID: visualisation
-     :END:
+*** Visualisation
+    :PROPERTIES:
+    :CUSTOM_ID: visualisation
+    :END:
 
 Based on the geo information of all the suburbs and towncenters, I wanna
 visualize them on f Folium map to examine if the data make sense.
 
-#+BEGIN_SRC python
-  address = 'Canberra, ACT'
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+address = 'Canberra, ACT'
 
-  geolocator = Nominatim(user_agent="act_explorer")
-  location = geolocator.geocode(address)
-  latitude = location.latitude
-  longitude = location.longitude
-  print('The geograpical coordinate of Canberra are {}, {}.'.format(latitude, longitude))
+geolocator = Nominatim(user_agent="act_explorer")
+location = geolocator.geocode(address)
+latitude = location.latitude
+longitude = location.longitude
+print('The geograpical coordinate of Canberra are {}, {}.'.format(latitude, longitude))
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  The geograpical coordinate of Canberra are -35.2975906, 149.1012676.
-#+END_EXAMPLE
+#+results:
+: The geograpical coordinate of Canberra are -35.2975906, 149.1012676.
 
-#+BEGIN_SRC python
-  # create map of Toronto using latitude and longitude values
-  map_canberra = folium.Map(location=[latitude, longitude], zoom_start=10)
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results
+# create map of Toronto using latitude and longitude values
+map_canberra = folium.Map(location=[latitude, longitude], zoom_start=10)
 
-  # add markers to suburbs
-  for lat, lng, towncenter, suburb in zip(df_can['Latitude'], df_can['Longitude'], df_can['Towncenter'], df_can['Suburb']):
-      label = '{}, {}'.format(suburb, towncenter)
-      label = folium.Popup(label, parse_html=True)
-      folium.CircleMarker(
-          [lat, lng],
-          radius=5,
-          popup=label,
-          color='blue',
-          fill=True,
-          fill_color='#3186cc',
-          fill_opacity=0.7,
-          parse_html=False).add_to(map_canberra)  
-      
-  # add markers to towncenters
-  for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
-      label = '{}'.format(towncenter)
-      label = folium.Popup(label, parse_html=True)
-      folium.CircleMarker(
-          [lat, lng],
-          radius=30,
-          popup=label,
-          color='purple',
-          fill=True,
-          fill_color='#EDE3FF',
-          fill_opacity=0.3,
-          parse_html=False).add_to(map_canberra)
-      
-  map_canberra
+# add markers to suburbs
+for lat, lng, towncenter, suburb in zip(df_can['Latitude'], df_can['Longitude'], df_can['Towncenter'], df_can['Suburb']):
+    label = '{}, {}'.format(suburb, towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=5,
+        popup=label,
+        color='blue',
+        fill=True,
+        fill_color='#3186cc',
+        fill_opacity=0.7,
+        parse_html=False).add_to(map_canberra)  
+    
+# add markers to towncenters
+for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
+    label = '{}'.format(towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=30,
+        popup=label,
+        color='purple',
+        fill=True,
+        fill_color='#EDE3FF',
+        fill_opacity=0.3,
+        parse_html=False).add_to(map_canberra)
+    
+map_canberra
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  <folium.folium.Map at 0x7f4f320b8b70>
-#+END_EXAMPLE
+#+results:
 
 The visulization looks all right so let's proceed to the next step to
 calulate the distance of each suburb to its nearest towncenter.
 
-*** Driving distance to nearest Towncenter
-    :PROPERTIES:
-    :CUSTOM_ID: driving-distance-to-nearest-towncenter
-    :END:
+** Driving distance to nearest Towncenter
+   :PROPERTIES:
+   :CUSTOM_ID: driving-distance-to-nearest-towncenter
+   :END:
 
 My first attempt to calculate the driving distance between suburb to
 towncenter is to use
@@ -487,11 +432,11 @@ Distance]] as an alternative to the driving distance.
 First let's create a DataFrame holding the matrix of suburb (row) and
 towncenter (column):
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   import haversine as hs
 #+END_SRC
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   to_columns = [town for town in df_town['Towncenter']]
   to_columns.append('Nearest')
 
@@ -500,28 +445,12 @@ towncenter (column):
   df_to.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb North Canberra Gungahlin Belconnen Tuggeranong South Canberra  \
-  0    Acton            NaN       NaN       NaN         NaN            NaN   
-  1  Ainslie            NaN       NaN       NaN         NaN            NaN   
-  2   Amaroo            NaN       NaN       NaN         NaN            NaN   
-  3   Aranda            NaN       NaN       NaN         NaN            NaN   
-  4    Banks            NaN       NaN       NaN         NaN            NaN   
-
-    Weston Creek Woden Valley Molonglo Valley Nearest  
-  0          NaN          NaN             NaN     NaN  
-  1          NaN          NaN             NaN     NaN  
-  2          NaN          NaN             NaN     NaN  
-  3          NaN          NaN             NaN     NaN  
-  4          NaN          NaN             NaN     NaN  
-#+END_EXAMPLE
-
 Now iterate each suburb and towncenter and calculate the Haversine
 Distance between them. An extra column =Nearest= hold the distance of a
 suburb to its closest towncenter which may not necessarily be the
 demographic one that it belongs to.
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   # Set towncenter and suburb as index for convenience
   df_to = df_to.set_index('Suburb')
   df_can = df_can.set_index('Suburb')
@@ -543,44 +472,19 @@ demographic one that it belongs to.
   df_to.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb North Canberra Gungahlin Belconnen Tuggeranong South Canberra  \
-  0    Acton        2.92106   11.8658   9.02768      15.212        3.82149   
-  1  Ainslie        1.41353   9.52225   10.2666     18.3655        6.18731   
-  2   Amaroo        10.5488    1.1068   10.0425     28.1424         16.302   
-  3   Aranda        4.78395   9.64007   4.80166     18.1473        7.94267   
-  4    Banks        23.2656    32.654   27.6612     5.70203        17.5513   
-
-    Weston Creek Woden Valley Molonglo Valley   Nearest  
-  0      8.76342      7.38827         7.57056  2.921057  
-  1      12.8069      10.9032         11.4413  1.413531  
-  2       20.654      20.2812         17.3014  1.106799  
-  3       9.9409      10.2827          6.7199  4.783948  
-  4      15.0409      13.5788         19.5805  5.702031  
-#+END_EXAMPLE
-
 Now we can add the nearest distance to towncenter information to our
 master DataFraem =df_can=:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_can = pd.merge(df_can, df_to[['Suburb', 'Nearest']], left_on='Suburb', right_on='Suburb', how='inner').fillna(0)
   df_can.to_csv('data/canberra_suburbs_distance.csv', index=False)
   df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb      Towncenter  Postcode   Latitude   Longitude   Nearest
-  0    Acton  North Canberra      2601 -35.285232  149.112968  2.921057
-  1  Ainslie  North Canberra      2602 -35.262195  149.147880  1.413531
-  2   Amaroo       Gungahlin      2914 -35.169587  149.128021  1.106799
-  3   Aranda       Belconnen      2614 -35.258055  149.080426  4.783948
-  4    Banks     Tuggeranong      2906 -35.471889  149.099657  5.702031
-#+END_EXAMPLE
-
-*** Add median price
-    :PROPERTIES:
-    :CUSTOM_ID: add-median-price
-    :END:
+** Add median price
+   :PROPERTIES:
+   :CUSTOM_ID: add-median-price
+   :END:
 
 Again, the dataset for the real estate price for each suburb is not
 readily (or at least freely) available online. Domain provides a
@@ -601,7 +505,7 @@ like single quote or space being replaced by a =-= character. So we
 define the following function to scrap the price data for 3/4-bedroom
 house:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   def get_median_price(suburb, postcode):
       suburb = suburb.replace(' ', '-').replace("'", "-")
       url = 'https://www.domain.com.au/suburb-profile/{}-act-{}'.format(suburb.lower(), postcode)
@@ -640,7 +544,7 @@ house for the very same reason. We will need to take care of these
 exceptions during the webscraping proceess and later on we will handle
 the missing information for some suburbs.
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   #df_can = pd.read_csv('data/canberra_suburbs_distance.csv')
   print('Obtaining house price: ', end='')
   df_price = pd.DataFrame(columns=['Suburb', 'bed3', 'bed4', 'Median Price'])
@@ -674,29 +578,16 @@ the missing information for some suburbs.
   df_price.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  Obtaining house price:  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . done.
-#+END_EXAMPLE
-
-#+BEGIN_EXAMPLE
-      Suburb   bed3   bed4 Median Price
-  0    Acton    NaN    NaN          NaN
-  1  Ainslie  11580  17010          NaN
-  2   Amaroo    649    803          NaN
-  3   Aranda    NaN    NaN          NaN
-  4    Banks    537    773          NaN
-#+END_EXAMPLE
-
-**** Fixing missing prices
-     :PROPERTIES:
-     :CUSTOM_ID: fixing-missing-prices
-     :END:
+*** Fixing missing prices
+    :PROPERTIES:
+    :CUSTOM_ID: fixing-missing-prices
+    :END:
 
 Let's first check the number of suburbs that we didn't find a price for
 3/4-bedroom houses as well as the number of thouse only has either 3 or
 4-bedrooms:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   no_bed3_and_bed4 = df_price['bed3'].isnull() & df_price['bed4'].isnull()
   no_bed3 = df_price['bed3'].isnull() & df_price['bed4'].notnull()
   no_bed4 = df_price['bed3'].notnull() & df_price['bed4'].isnull()
@@ -709,12 +600,6 @@ Let's first check the number of suburbs that we didn't find a price for
   print('No price for 4 bedrooms: {}, missing {:.2f}%'.format(no_bed4.sum(),
                                                              no_bed4.sum()*100/total))
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-  No price for both 3 and 4 bedrooms: 31, missing 27.68%
-  No price for 3 bedrooms: 10, missing 8.93%
-  No price for 4 bedrooms: 9, missing 8.04%
-#+END_EXAMPLE
 
 The missing rates for only 3 or 4 bedrooms are below 10% whereas missing
 rate for both 3 and 4 bedrooms are even higher 28%. Instead of dumpping
@@ -730,7 +615,7 @@ values, we use the following strategy to fix the missing prices:
 3. Finally for suburbs missing both prices, use the column mean
    respectively.
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   #1. calculate mean ration between 3 and 4 bedroom house price
   df_p = df_price[df_price['bed3'].notnull() & df_price['bed4'].notnull()]
   scale = (df_p['bed4'] / df_p['bed3']).mean()
@@ -743,19 +628,10 @@ values, we use the following strategy to fix the missing prices:
   df_price.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb          bed3          bed4 Median Price
-  0    Acton   1880.696666   4208.770003          NaN
-  1  Ainslie  11580.000000  17010.000000          NaN
-  2   Amaroo    649.000000    803.000000          NaN
-  3   Aranda   1880.696666   4208.770003          NaN
-  4    Banks    537.000000    773.000000          NaN
-#+END_EXAMPLE
-
 Now calulate an average price for 3 and 4 bedrooms house and merge that
 information into our master DataFrame =df_can=:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_price['Median Price'] = df_price[['bed3', 'bed4']].mean(axis=1)
 
   df_can = df_can.merge(df_price[['Suburb', 'Median Price']], left_on='Suburb', right_on='Suburb', how='inner')
@@ -763,40 +639,24 @@ information into our master DataFrame =df_can=:
   df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb      Towncenter  Postcode   Latitude   Longitude   Nearest  \
-  0    Acton  North Canberra      2601 -35.285232  149.112968  2.921057   
-  1  Ainslie  North Canberra      2602 -35.262195  149.147880  1.413531   
-  2   Amaroo       Gungahlin      2914 -35.169587  149.128021  1.106799   
-  3   Aranda       Belconnen      2614 -35.258055  149.080426  4.783948   
-  4    Banks     Tuggeranong      2906 -35.471889  149.099657  5.702031   
-
-     Median Price  
-  0   3044.733334  
-  1  14295.000000  
-  2    726.000000  
-  3   3044.733334  
-  4    655.000000  
-#+END_EXAMPLE
-
-*** Use Foursquare to check venues
-    :PROPERTIES:
-    :CUSTOM_ID: use-foursquare-to-check-venues
-    :END:
+** Use Foursquare to check venues
+   :PROPERTIES:
+   :CUSTOM_ID: use-foursquare-to-check-venues
+   :END:
 
 Similar to previous labs covered in the course, we will use the
 Foursquare API to explore the venues around each suburb and catagarize
 them. First define some credentials and a function to reteive venue
 information for a list of suburbs:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   CLIENT_ID = 'NA1JN3DQJULNX1LDJ00TD14RADCEPYZDJ1KSZEHK1LMVATL1' # your Foursquare ID
   CLIENT_SECRET = 'RWZA2UXX3T1CENZTGVAWJ11FQRXSKO3B50NLOCAPLBIZ0NJY' # your Foursquare Secret
   VERSION = '20180605' # Foursquare API version
   LIMIT = 100 # A default Foursquare API limit value
 #+END_SRC
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   def getNearbyVenues(names, latitudes, longitudes, radius=500):
       
       print('Obtaining venue information: ', end='')
@@ -839,7 +699,7 @@ information for a list of suburbs:
       return(nearby_venues)
 #+END_SRC
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   #df_can = pd.read_csv('data/canberra_suburbs_price.csv')
   canberra_venues = getNearbyVenues(names=df_can['Suburb'],
                                   latitudes=df_can['Latitude'],
@@ -848,75 +708,34 @@ information for a list of suburbs:
                                   )
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  Obtaining venue information:  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . done.
-#+END_EXAMPLE
-
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   print('There are {} total categories.'.format(canberra_venues.shape[0]))
   print('There are {} uniques categories.'.format(len(canberra_venues['Venue Category'].unique())))
   canberra_venues.to_csv('data/canberra_venues.csv', index=False)
   canberra_venues.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  There are 3042 total categories.
-  There are 196 uniques categories.
-#+END_EXAMPLE
-
-#+BEGIN_EXAMPLE
-    Suburb  Suburb Latitude  Suburb Longitude                 Venue  \
-  0  Acton       -35.285232        149.112968  Group Seven Espresso   
-  1  Acton       -35.285232        149.112968        Llewellyn Hall   
-  2  Acton       -35.285232        149.112968        Two Before Ten   
-  3  Acton       -35.285232        149.112968               Harvest   
-  4  Acton       -35.285232        149.112968  Mezzalira Ristorante   
-
-     Venue Latitude  Venue Longitude      Venue Category  
-  0      -35.281864       149.124639         Coffee Shop  
-  1      -35.280604       149.123442        Concert Hall  
-  2      -35.279753       149.126229                Café  
-  3      -35.278223       149.126675         Coffee Shop  
-  4      -35.279308       149.127748  Italian Restaurant  
-#+END_EXAMPLE
-
 Now we count the number of venues in each suburb and merge that into
 master DataFrame =df_can=. This colcludes the end of main data
 collection:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_count = canberra_venues.groupby(['Suburb'])['Suburb'].count().reset_index(name='venue count')
   df_can = df_can.merge(df_count, left_on='Suburb', right_on='Suburb', how='left').fillna(0)
   df_can.to_csv('data/canberra_suburbs_venues.csv', index=False)
   df_can.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb      Towncenter  Postcode   Latitude   Longitude   Nearest  \
-  0    Acton  North Canberra      2601 -35.285232  149.112968  2.921057   
-  1  Ainslie  North Canberra      2602 -35.262195  149.147880  1.413531   
-  2   Amaroo       Gungahlin      2914 -35.169587  149.128021  1.106799   
-  3   Aranda       Belconnen      2614 -35.258055  149.080426  4.783948   
-  4    Banks     Tuggeranong      2906 -35.471889  149.099657  5.702031   
-
-     Median Price  venue count  
-  0   3044.733334        100.0  
-  1  14295.000000         61.0  
-  2    726.000000         38.0  
-  3   3044.733334         29.0  
-  4    655.000000          9.0  
-#+END_EXAMPLE
-
-**** Analyze venues in each suburb
-     :PROPERTIES:
-     :CUSTOM_ID: analyze-venues-in-each-suburb
-     :END:
+*** Analyze venues in each suburb
+    :PROPERTIES:
+    :CUSTOM_ID: analyze-venues-in-each-suburb
+    :END:
 
 In this part, we find the top 5 most common venues in each suburb,
 following the examples from previous labs, and store them as an
 additional DataFrame =df_can= in addition to our master DataFrame:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   canberra_venues = pd.read_csv('data/canberra_venues.csv')
 
   # one hot encoding
@@ -932,330 +751,16 @@ additional DataFrame =df_can= in addition to our master DataFrame:
   canberra_onehot.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-    Suburb  Animal Shelter  Art Gallery  Arts & Crafts Store  Asian Restaurant  \
-  0  Acton               0            0                    0                 0   
-  1  Acton               0            0                    0                 0   
-  2  Acton               0            0                    0                 0   
-  3  Acton               0            0                    0                 0   
-  4  Acton               0            0                    0                 0   
-
-     Athletics & Sports  Australian Restaurant  Bakery  Bank  Bar  \
-  0                   0                      0       0     0    0   
-  1                   0                      0       0     0    0   
-  2                   0                      0       0     0    0   
-  3                   0                      0       0     0    0   
-  4                   0                      0       0     0    0   
-
-     Baseball Field  Baseball Stadium  Basketball Stadium  Bavarian Restaurant  \
-  0               0                 0                   0                    0   
-  1               0                 0                   0                    0   
-  2               0                 0                   0                    0   
-  3               0                 0                   0                    0   
-  4               0                 0                   0                    0   
-
-     Beach  Beer Bar  Bistro  Bookstore  Botanical Garden  Bowling Alley  \
-  0      0         0       0          0                 0              0   
-  1      0         0       0          0                 0              0   
-  2      0         0       0          0                 0              0   
-  3      0         0       0          0                 0              0   
-  4      0         0       0          0                 0              0   
-
-     Brewery  Bridge  Bubble Tea Shop  Buffet  Building  Burger Joint  \
-  0        0       0                0       0         0             0   
-  1        0       0                0       0         0             0   
-  2        0       0                0       0         0             0   
-  3        0       0                0       0         0             0   
-  4        0       0                0       0         0             0   
-
-     Bus Station  Bus Stop  Business Service  Café  Campground  \
-  0            0         0                 0     0           0   
-  1            0         0                 0     0           0   
-  2            0         0                 0     1           0   
-  3            0         0                 0     0           0   
-  4            0         0                 0     0           0   
-
-     Cantonese Restaurant  Child Care Service  Chinese Restaurant  \
-  0                     0                   0                   0   
-  1                     0                   0                   0   
-  2                     0                   0                   0   
-  3                     0                   0                   0   
-  4                     0                   0                   0   
-
-     Chocolate Shop  Climbing Gym  Clothing Store  Cocktail Bar  Coffee Shop  \
-  0               0             0               0             0            1   
-  1               0             0               0             0            0   
-  2               0             0               0             0            0   
-  3               0             0               0             0            1   
-  4               0             0               0             0            0   
-
-     Comic Shop  Concert Hall  Construction & Landscaping  Convenience Store  \
-  0           0             0                           0                  0   
-  1           0             1                           0                  0   
-  2           0             0                           0                  0   
-  3           0             0                           0                  0   
-  4           0             0                           0                  0   
-
-     Cricket Ground  Dance Studio  Deli / Bodega  Department Store  \
-  0               0             0              0                 0   
-  1               0             0              0                 0   
-  2               0             0              0                 0   
-  3               0             0              0                 0   
-  4               0             0              0                 0   
-
-     Dessert Shop  Dim Sum Restaurant  Diner  Discount Store  Doner Restaurant  \
-  0             0                   0      0               0                 0   
-  1             0                   0      0               0                 0   
-  2             0                   0      0               0                 0   
-  3             0                   0      0               0                 0   
-  4             0                   0      0               0                 0   
-
-     Donut Shop  Dumpling Restaurant  Electronics Store  Ethiopian Restaurant  \
-  0           0                    0                  0                     0   
-  1           0                    0                  0                     0   
-  2           0                    0                  0                     0   
-  3           0                    0                  0                     0   
-  4           0                    0                  0                     0   
-
-     Event Space  Exhibit  Farm  Farmers Market  Fast Food Restaurant  \
-  0            0        0     0               0                     0   
-  1            0        0     0               0                     0   
-  2            0        0     0               0                     0   
-  3            0        0     0               0                     0   
-  4            0        0     0               0                     0   
-
-     Filipino Restaurant  Fish & Chips Shop  Fish Market  Food & Drink Shop  \
-  0                    0                  0            0                  0   
-  1                    0                  0            0                  0   
-  2                    0                  0            0                  0   
-  3                    0                  0            0                  0   
-  4                    0                  0            0                  0   
-
-     Food Court  Football Stadium  Fountain  French Restaurant  \
-  0           0                 0         0                  0   
-  1           0                 0         0                  0   
-  2           0                 0         0                  0   
-  3           0                 0         0                  0   
-  4           0                 0         0                  0   
-
-     Fried Chicken Joint  Fruit & Vegetable Store  Furniture / Home Store  \
-  0                    0                        0                       0   
-  1                    0                        0                       0   
-  2                    0                        0                       0   
-  3                    0                        0                       0   
-  4                    0                        0                       0   
-
-     Garden  Garden Center  Gas Station  Gastropub  Gay Bar  Gift Shop  \
-  0       0              0            0          0        0          0   
-  1       0              0            0          0        0          0   
-  2       0              0            0          0        0          0   
-  3       0              0            0          0        0          0   
-  4       0              0            0          0        0          0   
-
-     Go Kart Track  Golf Course  Golf Driving Range  Gourmet Shop  \
-  0              0            0                   0             0   
-  1              0            0                   0             0   
-  2              0            0                   0             0   
-  3              0            0                   0             0   
-  4              0            0                   0             0   
-
-     Government Building  Grocery Store  Gym  Gym / Fitness Center  \
-  0                    0              0    0                     0   
-  1                    0              0    0                     0   
-  2                    0              0    0                     0   
-  3                    0              0    0                     0   
-  4                    0              0    0                     0   
-
-     Hardware Store  Historic Site  History Museum  Hostel  Hotel  Hotel Bar  \
-  0               0              0               0       0      0          0   
-  1               0              0               0       0      0          0   
-  2               0              0               0       0      0          0   
-  3               0              0               0       0      0          0   
-  4               0              0               0       0      0          0   
-
-     IT Services  Ice Cream Shop  Indian Restaurant  Indonesian Restaurant  \
-  0            0               0                  0                      0   
-  1            0               0                  0                      0   
-  2            0               0                  0                      0   
-  3            0               0                  0                      0   
-  4            0               0                  0                      0   
-
-     Intersection  Irish Pub  Italian Restaurant  Japanese Restaurant  \
-  0             0          0                   0                    0   
-  1             0          0                   0                    0   
-  2             0          0                   0                    0   
-  3             0          0                   0                    0   
-  4             0          0                   1                    0   
-
-     Juice Bar  Kebab Restaurant  Korean Restaurant  Lake  Lawyer  \
-  0          0                 0                  0     0       0   
-  1          0                 0                  0     0       0   
-  2          0                 0                  0     0       0   
-  3          0                 0                  0     0       0   
-  4          0                 0                  0     0       0   
-
-     Lebanese Restaurant  Library  Light Rail Station  Lighting Store  \
-  0                    0        0                   0               0   
-  1                    0        0                   0               0   
-  2                    0        0                   0               0   
-  3                    0        0                   0               0   
-  4                    0        0                   0               0   
-
-     Liquor Store  Lounge  Malay Restaurant  Market  Mediterranean Restaurant  \
-  0             0       0                 0       0                         0   
-  1             0       0                 0       0                         0   
-  2             0       0                 0       0                         0   
-  3             0       0                 0       0                         0   
-  4             0       0                 0       0                         0   
-
-     Memorial Site  Men's Store  Mexican Restaurant  Middle Eastern Restaurant  \
-  0              0            0                   0                          0   
-  1              0            0                   0                          0   
-  2              0            0                   0                          0   
-  3              0            0                   0                          0   
-  4              0            0                   0                          0   
-
-     Mobile Phone Shop  Molecular Gastronomy Restaurant  Monument / Landmark  \
-  0                  0                                0                    0   
-  1                  0                                0                    0   
-  2                  0                                0                    0   
-  3                  0                                0                    0   
-  4                  0                                0                    0   
-
-     Motel  Mountain  Multiplex  Museum  Music Venue  Nature Preserve  \
-  0      0         0          0       0            0                0   
-  1      0         0          0       0            0                0   
-  2      0         0          0       0            0                0   
-  3      0         0          0       0            0                0   
-  4      0         0          0       0            0                0   
-
-     Newsstand  Noodle House  Organic Grocery  Outdoor Sculpture  \
-  0          0             0                0                  0   
-  1          0             0                0                  0   
-  2          0             0                0                  0   
-  3          0             0                0                  0   
-  4          0             0                0                  0   
-
-     Outdoor Supply Store  Paintball Field  Paper / Office Supplies Store  Park  \
-  0                     0                0                              0     0   
-  1                     0                0                              0     0   
-  2                     0                0                              0     0   
-  3                     0                0                              0     0   
-  4                     0                0                              0     0   
-
-     Parking  Performing Arts Venue  Persian Restaurant  Pet Store  Pharmacy  \
-  0        0                      0                   0          0         0   
-  1        0                      0                   0          0         0   
-  2        0                      0                   0          0         0   
-  3        0                      0                   0          0         0   
-  4        0                      0                   0          0         0   
-
-     Pizza Place  Playground  Plaza  Pool  Post Office  Pub  Public Art  \
-  0            0           0      0     0            0    0           0   
-  1            0           0      0     0            0    0           0   
-  2            0           0      0     0            0    0           0   
-  3            0           0      0     0            0    0           0   
-  4            0           0      0     0            0    0           0   
-
-     RV Park  Racecourse  Restaurant  Rooftop Bar  Rugby Pitch  Salad Place  \
-  0        0           0           0            0            0            0   
-  1        0           0           0            0            0            0   
-  2        0           0           0            0            0            0   
-  3        0           0           0            0            0            0   
-  4        0           0           0            0            0            0   
-
-     Sandwich Place  Scenic Lookout  Science Museum  Sculpture Garden  \
-  0               0               0               0                 0   
-  1               0               0               0                 0   
-  2               0               0               0                 0   
-  3               0               0               0                 0   
-  4               0               0               0                 0   
-
-     Shipping Store  Shopping Mall  Shopping Plaza  Skate Park  Skating Rink  \
-  0               0              0               0           0             0   
-  1               0              0               0           0             0   
-  2               0              0               0           0             0   
-  3               0              0               0           0             0   
-  4               0              0               0           0             0   
-
-     Soccer Field  Social Club  South Indian Restaurant  Speakeasy  \
-  0             0            0                        0          0   
-  1             0            0                        0          0   
-  2             0            0                        0          0   
-  3             0            0                        0          0   
-  4             0            0                        0          0   
-
-     Sporting Goods Shop  Sports Bar  Sports Club  Steakhouse  Supermarket  \
-  0                    0           0            0           0            0   
-  1                    0           0            0           0            0   
-  2                    0           0            0           0            0   
-  3                    0           0            0           0            0   
-  4                    0           0            0           0            0   
-
-     Sushi Restaurant  Szechuan Restaurant  Tapas Restaurant  Tea Room  \
-  0                 0                    0                 0         0   
-  1                 0                    0                 0         0   
-  2                 0                    0                 0         0   
-  3                 0                    0                 0         0   
-  4                 0                    0                 0         0   
-
-     Thai Restaurant  Theater  Theme Park Ride / Attraction  \
-  0                0        0                             0   
-  1                0        0                             0   
-  2                0        0                             0   
-  3                0        0                             0   
-  4                0        0                             0   
-
-     Thrift / Vintage Store  Tiki Bar  Tourist Information Center  \
-  0                       0         0                           0   
-  1                       0         0                           0   
-  2                       0         0                           0   
-  3                       0         0                           0   
-  4                       0         0                           0   
-
-     Toy / Game Store  Trail  Train Station  Turkish Restaurant  \
-  0                 0      0              0                   0   
-  1                 0      0              0                   0   
-  2                 0      0              0                   0   
-  3                 0      0              0                   0   
-  4                 0      0              0                   0   
-
-     Vegetarian / Vegan Restaurant  Veterinarian  Vietnamese Restaurant  \
-  0                              0             0                      0   
-  1                              0             0                      0   
-  2                              0             0                      0   
-  3                              0             0                      0   
-  4                              0             0                      0   
-
-     Volleyball Court  Water Park  Waterfront  Whisky Bar  Wine Bar  Winery  \
-  0                 0           0           0           0         0       0   
-  1                 0           0           0           0         0       0   
-  2                 0           0           0           0         0       0   
-  3                 0           0           0           0         0       0   
-  4                 0           0           0           0         0       0   
-
-     Women's Store  Yoga Studio  Zoo  
-  0              0            0    0  
-  1              0            0    0  
-  2              0            0    0  
-  3              0            0    0  
-  4              0            0    0  
-#+END_EXAMPLE
-
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
   canberra_grouped.shape
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-  (111, 197)
-#+END_EXAMPLE
 
 Now let's create the new dataframe and display the top 10 venues for
 each suburb by writing a function to sort the venues in descending
 order:
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   def return_most_common_venues(row, num_top_venues):
       row_categories = row.iloc[1:]
       row_categories_sorted = row_categories.sort_values(ascending=False)
@@ -1263,7 +768,7 @@ order:
       return row_categories_sorted.index.values[0:num_top_venues]
 #+END_SRC
 
-#+BEGIN_SRC python
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   num_top_venues = 10
 
   indicators = ['st', 'nd', 'rd']
@@ -1287,41 +792,10 @@ order:
   df_venues.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb 1st Most Common Venue 2nd Most Common Venue 3rd Most Common Venue  \
-  0    Acton                  Café                 Hotel           Coffee Shop   
-  1  Ainslie                  Café                 Hotel    Chinese Restaurant   
-  2   Amaroo                  Café  Fast Food Restaurant           Supermarket   
-  3   Aranda                   Gym                  Café           Supermarket   
-  4    Banks           Supermarket        Sandwich Place   Fried Chicken Joint   
-
-    4th Most Common Venue 5th Most Common Venue 6th Most Common Venue  \
-  0    Mexican Restaurant    Italian Restaurant       Thai Restaurant   
-  1          Liquor Store      Asian Restaurant         Grocery Store   
-  2        Shopping Plaza      Department Store        Sandwich Place   
-  3                 Hotel    Chinese Restaurant             Bookstore   
-  4                Bistro      Toy / Game Store  Fast Food Restaurant   
-
-     7th Most Common Venue          8th Most Common Venue 9th Most Common Venue  \
-  0    Japanese Restaurant                 Sandwich Place                 Plaza   
-  1  Vietnamese Restaurant  Vegetarian / Vegan Restaurant           Coffee Shop   
-  2            Social Club              Mobile Phone Shop         Shopping Mall   
-  3           Liquor Store                    Gas Station                Market   
-  4          Grocery Store                    Pizza Place  Ethiopian Restaurant   
-
-    10th Most Common Venue  
-  0           Noodle House  
-  1  Australian Restaurant  
-  2            Coffee Shop  
-  3            Sports Club  
-  4      Fish & Chips Shop  
-#+END_EXAMPLE
-
-** Methodology
-   :PROPERTIES:
-   :CUSTOM_ID: methodology-
-   :END:
-
+* Methodology
+  :PROPERTIES:
+  :CUSTOM_ID: methodology-
+  :END:
 In this study, we will try to categrize suburbs into different groups
 with similar profiles based on different metrics. In the previous data
 collection stage, we have assembed two Pandas DataFrames: one consists
@@ -1342,21 +816,23 @@ By the end of the study, we should have well segmented suburbs and be
 able to give recommendations to the young family seeking for properties
 according to different criteria.
 
-** Analysis
-   :PROPERTIES:
-   :CUSTOM_ID: analysis-
-   :END:
+* Analysis
+  :PROPERTIES:
+  :CUSTOM_ID: analysis-
+  :END:
 
-#+BEGIN_SRC python
-  # uncomment if use stored data
-  #df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
-  #df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# uncomment if use stored data
+df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
+df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
 #+END_SRC
 
-*** Get some statitics
-    :PROPERTIES:
-    :CUSTOM_ID: get-some-statitics
-    :END:
+#+results:
+
+** Get some statitics
+   :PROPERTIES:
+   :CUSTOM_ID: get-some-statitics
+   :END:
 
 Let's first perform some basic explanatory data analysis on our main
 DataFrame. We will explore statitics of median house price, number of
@@ -1364,81 +840,85 @@ venues and distance to nearest towncenters for each suburb grouped by
 their governing towncenters. Pandas boxplot is used instead of the
 seaborn library but with adjusted style:
 
-#+BEGIN_SRC python
-  # We will use the boxplot from Pandas as it provides groupby by default,
-  # but adjust the default style: https://stackoverflow.com/a/35197282
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# We will use the boxplot from Pandas as it provides groupby by default,
+# but adjust the default style: https://stackoverflow.com/a/35197282
 
-  def adjust_boxplot_style(bp):
-      # boxplot style adjustments
-      [[item.set_linewidth(4) for item in bp[key]['boxes']] for key in bp.keys()]
-      [[item.set_linewidth(4) for item in bp[key]['fliers']] for key in bp.keys()]
-      [[item.set_linewidth(4) for item in bp[key]['medians']] for key in bp.keys()]
-      [[item.set_linewidth(4) for item in bp[key]['means']] for key in bp.keys()]
-      [[item.set_linewidth(4) for item in bp[key]['whiskers']] for key in bp.keys()]
-      [[item.set_linewidth(4) for item in bp[key]['caps']] for key in bp.keys()]
+def adjust_boxplot_style(bp):
+    # boxplot style adjustments
+    [[item.set_linewidth(4) for item in bp[key]['boxes']] for key in bp.keys()]
+    [[item.set_linewidth(4) for item in bp[key]['fliers']] for key in bp.keys()]
+    [[item.set_linewidth(4) for item in bp[key]['medians']] for key in bp.keys()]
+    [[item.set_linewidth(4) for item in bp[key]['means']] for key in bp.keys()]
+    [[item.set_linewidth(4) for item in bp[key]['whiskers']] for key in bp.keys()]
+    [[item.set_linewidth(4) for item in bp[key]['caps']] for key in bp.keys()]
 
-      [[item.set_color('g') for item in bp[key]['boxes']] for key in bp.keys()]
-      # seems to have no effect
-      [[item.set_color('b') for item in bp[key]['fliers']] for key in bp.keys()]
-      [[item.set_color('m') for item in bp[key]['medians']] for key in bp.keys()]
-      [[item.set_markerfacecolor('k') for item in bp[key]['means']] for key in bp.keys()]
-      [[item.set_color('c') for item in bp[key]['whiskers']] for key in bp.keys()]
-      [[item.set_color('y') for item in bp[key]['caps']] for key in bp.keys()]
+    [[item.set_color('g') for item in bp[key]['boxes']] for key in bp.keys()]
+    # seems to have no effect
+    [[item.set_color('b') for item in bp[key]['fliers']] for key in bp.keys()]
+    [[item.set_color('m') for item in bp[key]['medians']] for key in bp.keys()]
+    [[item.set_markerfacecolor('k') for item in bp[key]['means']] for key in bp.keys()]
+    [[item.set_color('c') for item in bp[key]['whiskers']] for key in bp.keys()]
+    [[item.set_color('y') for item in bp[key]['caps']] for key in bp.keys()]
 #+END_SRC
 
-#+BEGIN_SRC python
-  boxprops = dict(linestyle='-', linewidth=4, color='k')
-  medianprops = dict(linestyle='-', linewidth=4, color='k')
+#+results:
 
-  fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :file figures/suburb_statistics_towncenters.jpg
+boxprops = dict(linestyle='-', linewidth=4, color='k')
+medianprops = dict(linestyle='-', linewidth=4, color='k')
 
-  bp1 = df_can.boxplot(column='Median Price',by='Towncenter', ax=ax1,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
 
-  bp2 = df_can.boxplot(column='venue count',by='Towncenter', ax=ax2,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+bp1 = df_can.boxplot(column='Median Price',by='Towncenter', ax=ax1,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  bp3 = df_can.boxplot(column='Nearest',by='Towncenter', ax=ax3,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+bp2 = df_can.boxplot(column='venue count',by='Towncenter', ax=ax2,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  # boxplot style adjustments
-  adjust_boxplot_style(bp1)
-  adjust_boxplot_style(bp2)
-  adjust_boxplot_style(bp3)
+bp3 = df_can.boxplot(column='Nearest',by='Towncenter', ax=ax3,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  # get rid of "boxplot grouped by" title
-  plt.suptitle("")
+# boxplot style adjustments
+adjust_boxplot_style(bp1)
+adjust_boxplot_style(bp2)
+adjust_boxplot_style(bp3)
 
-  # label adjustment
-  ax1.set_title("Median price for suburbs \nin different towncenters", fontsize=20)
-  ax1.set_ylabel('Median Price (K)', fontsize=20)
-  ax1.set_xlabel('')
-  ax1.tick_params(axis='y', labelsize=20)
-  ax1.tick_params(axis='x', labelsize=20)
-  ax1.tick_params(axis="x", rotation=45)
+# get rid of "boxplot grouped by" title
+plt.suptitle("")
 
-  ax2.set_title("Venue count for suburbs \nin different towncenters", fontsize=20)
-  ax2.set_ylabel('Venue numbers', fontsize=20)
-  ax2.set_xlabel('')
-  ax2.tick_params(axis='y', labelsize=20)
-  ax2.tick_params(axis='x', labelsize=20)
-  ax2.tick_params(axis="x", rotation=45)
+# label adjustment
+ax1.set_title("Median price for suburbs \nin different towncenters", fontsize=20)
+ax1.set_ylabel('Median Price (K)', fontsize=20)
+ax1.set_xlabel('')
+ax1.tick_params(axis='y', labelsize=20)
+ax1.tick_params(axis='x', labelsize=20)
+ax1.tick_params(axis="x", rotation=45)
 
-  ax3.set_title("Distance to nearest townceters for suburbs \nin different towncenters", fontsize=20)
-  ax3.set_ylabel('Distance (km)', fontsize=20)
-  ax3.set_xlabel('')
-  ax3.tick_params(axis='y', labelsize=20)
-  ax3.tick_params(axis='x', labelsize=20)
-  ax3.tick_params(axis="x", rotation=45)
+ax2.set_title("Venue count for suburbs \nin different towncenters", fontsize=20)
+ax2.set_ylabel('Venue numbers', fontsize=20)
+ax2.set_xlabel('')
+ax2.tick_params(axis='y', labelsize=20)
+ax2.tick_params(axis='x', labelsize=20)
+ax2.tick_params(axis="x", rotation=45)
+
+ax3.set_title("Distance to nearest townceters for suburbs \nin different towncenters", fontsize=20)
+ax3.set_ylabel('Distance (km)', fontsize=20)
+ax3.set_xlabel('')
+ax3.tick_params(axis='y', labelsize=20)
+ax3.tick_params(axis='x', labelsize=20)
+ax3.tick_params(axis="x", rotation=45)
 #+END_SRC
 
-[[file:8a9750665dfc28385dc778af2a487c517a515fe3.png]]
+#+results:
+[[file:figures/suburb_statistics_towncenters.jpg]]
+
 
 From the above 3 plots, we can see that there are more venues in North
 and South Canberras and the house price there are also much higher than
@@ -1447,182 +927,1653 @@ towncenter however does not present a significant difference which
 indicate the well planned geo structure of Canberra suburbs. Next we
 will use k-means to cluster all the suburbs.
 
-*** k-means clustering on master dataset
-    :PROPERTIES:
-    :CUSTOM_ID: k-means-clustering-on-master-dataset
-    :END:
+** k-means clustering on master dataset
+   :PROPERTIES:
+   :CUSTOM_ID: k-means-clustering-on-master-dataset
+   :END:
 
 In this section, we will use k-means to perform unsupervised clustering
 on our master dataset =df_can= and the venue category dataset
 =df_venues=. To find the optimal number of clusters, the elbow method
 will be used.
 
-#+BEGIN_SRC python
-  #df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
-  drop_columns = ['Towncenter', 'Postcode', 'Latitude', 'Longitude']
-  df_cluster = df_can.drop(drop_columns, axis=1).set_index('Suburb')
-  df_cluster.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+#df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
+drop_columns = ['Towncenter', 'Postcode', 'Latitude', 'Longitude']
+df_cluster = df_can.drop(drop_columns, axis=1).set_index('Suburb')
+#df_cluster.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-            Nearest  Median Price  venue count
-  Suburb                                      
-  Acton    2.921057   3044.733334        100.0
-  Ainslie  1.413531  14295.000000         61.0
-  Amaroo   1.106799    726.000000         38.0
-  Aranda   4.783948   3044.733334         29.0
-  Banks    5.702031    655.000000          9.0
-#+END_EXAMPLE
+#+results:
 
-#+BEGIN_SRC python
-  # normalize datasets
-  from sklearn.preprocessing import StandardScaler
-  X = df.values[:,:]
-  X = np.nan_to_num(X)
-  clus_data = StandardScaler().fit_transform(X)
-  clus_data.shape
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# normalize datasets
+from sklearn.preprocessing import StandardScaler
+X = df_cluster.values[:,:]
+X = np.nan_to_num(X)
+clus_data = StandardScaler().fit_transform(X)
+clus_data.shape
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  (112, 3)
-#+END_EXAMPLE
+#+results:
+| 112 | 3 |
 
 To find optimal cluster number, we iterate from 1 to 10 and find the
 turning point:
 
-#+BEGIN_SRC python
-  distortions = []
-  K = range(1,10)
-  for k in K:
-      kmeanModel = KMeans(n_clusters=k, random_state=0).fit(clus_data)
-      distortions.append(sum(np.min(cdist(clus_data, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / clus_data.shape[0])
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+distortions = []
+K = range(1,10)
+for k in K:
+    kmeanModel = KMeans(n_clusters=k, random_state=0).fit(clus_data)
+    distortions.append(sum(np.min(cdist(clus_data, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / clus_data.shape[0])
 
-  #There are different metric distance function for spatial distance. 
-  #I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
+#There are different metric distance function for spatial distance. 
+#I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
 
-  # Plot the elbow
-  plt.plot(K, distortions, 'bx-')
-  plt.xlabel('k')
-  plt.ylabel('Distortion')
-  plt.title('The Elbow Method showing the optimal k')
-  plt.show()
+# Plot the elbow
+plt.plot(K, distortions, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Distortion')
+plt.title('The Elbow Method showing the optimal k')
+plt.show()
 #+END_SRC
 
-[[file:73bd1ce141ab3020f146d566b93304386a0e8647.png]]
+#+results:
+[[file:./.ob-jupyter/c0eee727770411c6226540bf7e22b6aed5a8986e.png]]
+
 
 So 3 would be the optimal number of clusters and let's rerun the
 clustering:
 
-#+BEGIN_SRC python
-  # set number of clusters
-  kclusters = 3
-  # run k-means clustering
-  kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(clus_data)
-  kmeans.labels_
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# set number of clusters
+kclusters = 3
+# run k-means clustering
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(clus_data)
+kmeans.labels_
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  array([1, 1, 0, 2, 2, 1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 2, 1, 2, 1, 2, 2,
-         0, 2, 2, 1, 0, 1, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 1, 2, 2, 2, 1, 2,
-         2, 2, 0, 0, 1, 0, 2, 2, 0, 0, 0, 2, 1, 2, 2, 0, 2, 2, 2, 1, 0, 2,
-         0, 1, 2, 2, 2, 1, 0, 2, 0, 2, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1,
-         1, 0, 1, 1, 0, 0, 1, 0, 2, 0, 2, 2, 2, 2, 0, 1, 0, 0, 2, 1, 0, 2,
-         0, 1], dtype=int32)
-#+END_EXAMPLE
+#+results:
+: array([2, 2, 1, 0, 0, 2, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 0, 2, 0, 2, 0, 0,
+:        1, 0, 0, 2, 1, 2, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 1, 0,
+:        0, 0, 1, 1, 2, 1, 0, 0, 1, 1, 1, 0, 2, 0, 1, 1, 0, 0, 0, 2, 1, 0,
+:        1, 2, 0, 0, 0, 2, 1, 0, 1, 0, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 2,
+:        2, 1, 2, 2, 1, 1, 2, 1, 0, 1, 0, 0, 0, 0, 1, 2, 1, 1, 0, 2, 1, 0,
+:        1, 2], dtype=int32)
 
-#+BEGIN_SRC python
-  # insert the cluster label to DataFrame
-  df_cluster = df_can.copy()
-  df_cluster.insert(0, 'Cluster', kmeans.labels_)
-  df_cluster.reset_index()
-  df_cluster.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# insert the cluster label to DataFrame
+df_cluster = df_can.copy()
+df_cluster.insert(0, 'Cluster', kmeans.labels_)
+df_cluster.reset_index()
+# df_cluster.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-     Cluster   Suburb      Towncenter  Postcode   Latitude   Longitude  \
-  0        1    Acton  North Canberra      2601 -35.285232  149.112968   
-  1        1  Ainslie  North Canberra      2602 -35.262195  149.147880   
-  2        0   Amaroo       Gungahlin      2914 -35.169587  149.128021   
-  3        2   Aranda       Belconnen      2614 -35.258055  149.080426   
-  4        2    Banks     Tuggeranong      2906 -35.471889  149.099657   
+#+results:
+#+begin_export html
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
 
-      Nearest  Median Price  venue count  
-  0  2.921057   3044.733334        100.0  
-  1  1.413531  14295.000000         61.0  
-  2  1.106799    726.000000         38.0  
-  3  4.783948   3044.733334         29.0  
-  4  5.702031    655.000000          9.0  
-#+END_EXAMPLE
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
 
-#+BEGIN_SRC python
-  df_cluster['Cluster'].value_counts()
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>index</th>
+      <th>Cluster</th>
+      <th>Suburb</th>
+      <th>Towncenter</th>
+      <th>Postcode</th>
+      <th>Latitude</th>
+      <th>Longitude</th>
+      <th>Nearest</th>
+      <th>Median Price</th>
+      <th>venue count</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>2</td>
+      <td>Acton</td>
+      <td>North Canberra</td>
+      <td>2601</td>
+      <td>-35.285232</td>
+      <td>149.112968</td>
+      <td>2.921057</td>
+      <td>3044.733334</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1</td>
+      <td>2</td>
+      <td>Ainslie</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.262195</td>
+      <td>149.147880</td>
+      <td>1.413531</td>
+      <td>14295.000000</td>
+      <td>61.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2</td>
+      <td>1</td>
+      <td>Amaroo</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.169587</td>
+      <td>149.128021</td>
+      <td>1.106799</td>
+      <td>726.000000</td>
+      <td>38.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>3</td>
+      <td>0</td>
+      <td>Aranda</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.258055</td>
+      <td>149.080426</td>
+      <td>4.783948</td>
+      <td>3044.733334</td>
+      <td>29.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>4</td>
+      <td>0</td>
+      <td>Banks</td>
+      <td>Tuggeranong</td>
+      <td>2906</td>
+      <td>-35.471889</td>
+      <td>149.099657</td>
+      <td>5.702031</td>
+      <td>655.000000</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>5</td>
+      <td>2</td>
+      <td>Barton</td>
+      <td>South Canberra</td>
+      <td>2600</td>
+      <td>-35.307263</td>
+      <td>149.140499</td>
+      <td>1.294751</td>
+      <td>3044.733334</td>
+      <td>92.0</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>6</td>
+      <td>1</td>
+      <td>Belconnen</td>
+      <td>Belconnen</td>
+      <td>2616</td>
+      <td>-35.227434</td>
+      <td>149.043145</td>
+      <td>0.000000</td>
+      <td>3044.733334</td>
+      <td>12.0</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>7</td>
+      <td>0</td>
+      <td>Bonner</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.155962</td>
+      <td>149.142956</td>
+      <td>3.093818</td>
+      <td>683.500000</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>8</td>
+      <td>1</td>
+      <td>Bonython</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.433308</td>
+      <td>149.078276</td>
+      <td>1.859237</td>
+      <td>687.500000</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>9</td>
+      <td>2</td>
+      <td>Braddon</td>
+      <td>North Canberra</td>
+      <td>2612</td>
+      <td>-35.270815</td>
+      <td>149.135735</td>
+      <td>0.771686</td>
+      <td>3044.733334</td>
+      <td>93.0</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>10</td>
+      <td>0</td>
+      <td>Bruce</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.245352</td>
+      <td>149.091633</td>
+      <td>4.275146</td>
+      <td>3044.733334</td>
+      <td>28.0</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>11</td>
+      <td>1</td>
+      <td>Calwell</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.440386</td>
+      <td>149.107107</td>
+      <td>2.549109</td>
+      <td>677.500000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>12</td>
+      <td>2</td>
+      <td>Campbell</td>
+      <td>North Canberra</td>
+      <td>2612</td>
+      <td>-35.291340</td>
+      <td>149.158176</td>
+      <td>3.683473</td>
+      <td>14565.000000</td>
+      <td>34.0</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>13</td>
+      <td>2</td>
+      <td>Capital Hill</td>
+      <td>South Canberra</td>
+      <td>2600</td>
+      <td>-35.308180</td>
+      <td>149.124421</td>
+      <td>1.086058</td>
+      <td>3044.733334</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>14</td>
+      <td>0</td>
+      <td>Casey</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.167002</td>
+      <td>149.094715</td>
+      <td>2.943163</td>
+      <td>679.000000</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>15</td>
+      <td>1</td>
+      <td>Chapman</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.356209</td>
+      <td>149.037454</td>
+      <td>1.705724</td>
+      <td>6954.724984</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>16</td>
+      <td>0</td>
+      <td>Charnwood</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.200178</td>
+      <td>149.034136</td>
+      <td>3.139327</td>
+      <td>1119.328062</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>17</td>
+      <td>2</td>
+      <td>Chifley</td>
+      <td>Woden Valley</td>
+      <td>2606</td>
+      <td>-35.353295</td>
+      <td>149.076890</td>
+      <td>1.602380</td>
+      <td>6688.004946</td>
+      <td>36.0</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>18</td>
+      <td>0</td>
+      <td>Chisholm</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.421966</td>
+      <td>149.124845</td>
+      <td>2.966122</td>
+      <td>685.500000</td>
+      <td>17.0</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>19</td>
+      <td>2</td>
+      <td>City</td>
+      <td>North Canberra</td>
+      <td>2601</td>
+      <td>-35.281268</td>
+      <td>149.129187</td>
+      <td>1.902094</td>
+      <td>3044.733334</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>20</td>
+      <td>0</td>
+      <td>Conder</td>
+      <td>Tuggeranong</td>
+      <td>2906</td>
+      <td>-35.459273</td>
+      <td>149.104328</td>
+      <td>4.399307</td>
+      <td>648.000000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>21</td>
+      <td>0</td>
+      <td>Cook</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.260103</td>
+      <td>149.066366</td>
+      <td>4.200379</td>
+      <td>3044.733334</td>
+      <td>31.0</td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>22</td>
+      <td>1</td>
+      <td>Coombs</td>
+      <td>Molonglo Valley</td>
+      <td>2611</td>
+      <td>-35.316734</td>
+      <td>149.042525</td>
+      <td>1.623548</td>
+      <td>788.500000</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>23</td>
+      <td>0</td>
+      <td>Crace</td>
+      <td>Gungahlin</td>
+      <td>2911</td>
+      <td>-35.202880</td>
+      <td>149.107474</td>
+      <td>3.047059</td>
+      <td>776.000000</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>24</th>
+      <td>24</td>
+      <td>0</td>
+      <td>Curtin</td>
+      <td>Woden Valley</td>
+      <td>2605</td>
+      <td>-35.324632</td>
+      <td>149.077378</td>
+      <td>3.186627</td>
+      <td>6244.000000</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>25</td>
+      <td>2</td>
+      <td>Deakin</td>
+      <td>South Canberra</td>
+      <td>2600</td>
+      <td>-35.319275</td>
+      <td>149.103076</td>
+      <td>2.584546</td>
+      <td>15165.000000</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>26</th>
+      <td>26</td>
+      <td>1</td>
+      <td>Denman Prospect</td>
+      <td>Molonglo Valley</td>
+      <td>2611</td>
+      <td>-35.296415</td>
+      <td>149.024810</td>
+      <td>1.154765</td>
+      <td>658.798493</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>27</td>
+      <td>2</td>
+      <td>Dickson</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.252786</td>
+      <td>149.141722</td>
+      <td>1.535347</td>
+      <td>1898.860106</td>
+      <td>58.0</td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>28</td>
+      <td>1</td>
+      <td>Downer</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.243831</td>
+      <td>149.143546</td>
+      <td>2.494032</td>
+      <td>952.500000</td>
+      <td>58.0</td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>29</td>
+      <td>1</td>
+      <td>Duffy</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.334552</td>
+      <td>149.031900</td>
+      <td>1.745455</td>
+      <td>789.000000</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>30</th>
+      <td>30</td>
+      <td>0</td>
+      <td>Dunlop</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.193997</td>
+      <td>149.019801</td>
+      <td>4.280316</td>
+      <td>659.000000</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>31</th>
+      <td>31</td>
+      <td>0</td>
+      <td>Evatt</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.211832</td>
+      <td>149.068948</td>
+      <td>2.916102</td>
+      <td>739.000000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>32</th>
+      <td>32</td>
+      <td>0</td>
+      <td>Fadden</td>
+      <td>Tuggeranong</td>
+      <td>2904</td>
+      <td>-35.401862</td>
+      <td>149.117610</td>
+      <td>3.138207</td>
+      <td>600.120085</td>
+      <td>28.0</td>
+    </tr>
+    <tr>
+      <th>33</th>
+      <td>33</td>
+      <td>0</td>
+      <td>Farrer</td>
+      <td>Woden Valley</td>
+      <td>2607</td>
+      <td>-35.376690</td>
+      <td>149.105038</td>
+      <td>3.145545</td>
+      <td>6222.500000</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>34</th>
+      <td>34</td>
+      <td>1</td>
+      <td>Fisher</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.361263</td>
+      <td>149.056876</td>
+      <td>2.150464</td>
+      <td>763.000000</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>35</th>
+      <td>35</td>
+      <td>1</td>
+      <td>Florey</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.225790</td>
+      <td>149.050175</td>
+      <td>0.664135</td>
+      <td>732.000000</td>
+      <td>34.0</td>
+    </tr>
+    <tr>
+      <th>36</th>
+      <td>36</td>
+      <td>1</td>
+      <td>Flynn</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.205837</td>
+      <td>149.044063</td>
+      <td>2.402917</td>
+      <td>727.500000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>37</th>
+      <td>37</td>
+      <td>1</td>
+      <td>Forde</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.168224</td>
+      <td>149.146069</td>
+      <td>2.356815</td>
+      <td>782.500000</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>38</th>
+      <td>38</td>
+      <td>2</td>
+      <td>Forrest</td>
+      <td>South Canberra</td>
+      <td>2603</td>
+      <td>-35.317209</td>
+      <td>149.124856</td>
+      <td>0.596617</td>
+      <td>3044.733334</td>
+      <td>73.0</td>
+    </tr>
+    <tr>
+      <th>39</th>
+      <td>39</td>
+      <td>0</td>
+      <td>Franklin</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.199454</td>
+      <td>149.143301</td>
+      <td>2.902183</td>
+      <td>730.000000</td>
+      <td>24.0</td>
+    </tr>
+    <tr>
+      <th>40</th>
+      <td>40</td>
+      <td>0</td>
+      <td>Fraser</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.191712</td>
+      <td>149.045318</td>
+      <td>3.976945</td>
+      <td>3044.733334</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>41</th>
+      <td>41</td>
+      <td>0</td>
+      <td>Fyshwick</td>
+      <td>South Canberra</td>
+      <td>2609</td>
+      <td>-35.321658</td>
+      <td>149.170877</td>
+      <td>3.641686</td>
+      <td>3044.733334</td>
+      <td>45.0</td>
+    </tr>
+    <tr>
+      <th>42</th>
+      <td>42</td>
+      <td>1</td>
+      <td>Garran</td>
+      <td>Woden Valley</td>
+      <td>2605</td>
+      <td>-35.341397</td>
+      <td>149.108539</td>
+      <td>1.616345</td>
+      <td>8988.465272</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>43</th>
+      <td>43</td>
+      <td>0</td>
+      <td>Gilmore</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.415011</td>
+      <td>149.138278</td>
+      <td>4.233777</td>
+      <td>674.500000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>44</th>
+      <td>44</td>
+      <td>0</td>
+      <td>Giralang</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.210939</td>
+      <td>149.095992</td>
+      <td>4.361993</td>
+      <td>776.000000</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>45</th>
+      <td>45</td>
+      <td>0</td>
+      <td>Gordon</td>
+      <td>Tuggeranong</td>
+      <td>2906</td>
+      <td>-35.456726</td>
+      <td>149.085066</td>
+      <td>4.026384</td>
+      <td>665.000000</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>46</th>
+      <td>46</td>
+      <td>1</td>
+      <td>Gowrie</td>
+      <td>Tuggeranong</td>
+      <td>2904</td>
+      <td>-35.411817</td>
+      <td>149.109106</td>
+      <td>1.844741</td>
+      <td>3044.733334</td>
+      <td>22.0</td>
+    </tr>
+    <tr>
+      <th>47</th>
+      <td>47</td>
+      <td>1</td>
+      <td>Greenway</td>
+      <td>Tuggeranong</td>
+      <td>2900</td>
+      <td>-35.415808</td>
+      <td>149.064815</td>
+      <td>2.541443</td>
+      <td>3044.733334</td>
+      <td>26.0</td>
+    </tr>
+    <tr>
+      <th>48</th>
+      <td>48</td>
+      <td>2</td>
+      <td>Griffith</td>
+      <td>South Canberra</td>
+      <td>2603</td>
+      <td>-35.325350</td>
+      <td>149.137130</td>
+      <td>1.149409</td>
+      <td>16830.000000</td>
+      <td>93.0</td>
+    </tr>
+    <tr>
+      <th>49</th>
+      <td>49</td>
+      <td>1</td>
+      <td>Gungahlin</td>
+      <td>Gungahlin</td>
+      <td>2912</td>
+      <td>-35.178878</td>
+      <td>149.123653</td>
+      <td>0.000000</td>
+      <td>755.000000</td>
+      <td>29.0</td>
+    </tr>
+    <tr>
+      <th>50</th>
+      <td>50</td>
+      <td>0</td>
+      <td>Hackett</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.249509</td>
+      <td>149.163544</td>
+      <td>3.264742</td>
+      <td>6606.500000</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>51</th>
+      <td>51</td>
+      <td>0</td>
+      <td>Harrison</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.199060</td>
+      <td>149.156126</td>
+      <td>3.707349</td>
+      <td>679.500000</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>52</th>
+      <td>52</td>
+      <td>1</td>
+      <td>Hawker</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.247044</td>
+      <td>149.036697</td>
+      <td>2.257885</td>
+      <td>3044.733334</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>53</th>
+      <td>53</td>
+      <td>1</td>
+      <td>Higgins</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.232407</td>
+      <td>149.027232</td>
+      <td>1.547605</td>
+      <td>689.500000</td>
+      <td>17.0</td>
+    </tr>
+    <tr>
+      <th>54</th>
+      <td>54</td>
+      <td>1</td>
+      <td>Holder</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.334483</td>
+      <td>149.046168</td>
+      <td>1.002174</td>
+      <td>752.500000</td>
+      <td>23.0</td>
+    </tr>
+    <tr>
+      <th>55</th>
+      <td>55</td>
+      <td>0</td>
+      <td>Holt</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.224396</td>
+      <td>149.011929</td>
+      <td>2.855497</td>
+      <td>643.500000</td>
+      <td>13.0</td>
+    </tr>
+    <tr>
+      <th>56</th>
+      <td>56</td>
+      <td>2</td>
+      <td>Hughes</td>
+      <td>Woden Valley</td>
+      <td>2605</td>
+      <td>-35.332625</td>
+      <td>149.094943</td>
+      <td>1.917944</td>
+      <td>6505.000000</td>
+      <td>32.0</td>
+    </tr>
+    <tr>
+      <th>57</th>
+      <td>57</td>
+      <td>0</td>
+      <td>Hume</td>
+      <td>Tuggeranong</td>
+      <td>2620</td>
+      <td>-35.385382</td>
+      <td>149.165847</td>
+      <td>7.614914</td>
+      <td>3044.733334</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>58</th>
+      <td>58</td>
+      <td>1</td>
+      <td>Isaacs</td>
+      <td>Woden Valley</td>
+      <td>2607</td>
+      <td>-35.368471</td>
+      <td>149.113099</td>
+      <td>2.695934</td>
+      <td>5652.500000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>59</th>
+      <td>59</td>
+      <td>1</td>
+      <td>Isabella Plains</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.428007</td>
+      <td>149.094009</td>
+      <td>0.799956</td>
+      <td>639.000000</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>60</th>
+      <td>60</td>
+      <td>0</td>
+      <td>Jacka</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.149516</td>
+      <td>149.130430</td>
+      <td>3.322507</td>
+      <td>3044.733334</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>61</th>
+      <td>61</td>
+      <td>0</td>
+      <td>Kaleen</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.227787</td>
+      <td>149.109139</td>
+      <td>4.590837</td>
+      <td>846.000000</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>62</th>
+      <td>62</td>
+      <td>0</td>
+      <td>Kambah</td>
+      <td>Tuggeranong</td>
+      <td>2902</td>
+      <td>-35.386229</td>
+      <td>149.057967</td>
+      <td>4.851143</td>
+      <td>699.000000</td>
+      <td>12.0</td>
+    </tr>
+    <tr>
+      <th>63</th>
+      <td>63</td>
+      <td>2</td>
+      <td>Kingston</td>
+      <td>South Canberra</td>
+      <td>2604</td>
+      <td>-35.315230</td>
+      <td>149.146592</td>
+      <td>1.390824</td>
+      <td>3044.733334</td>
+      <td>96.0</td>
+    </tr>
+    <tr>
+      <th>64</th>
+      <td>64</td>
+      <td>1</td>
+      <td>Latham</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.216391</td>
+      <td>149.031639</td>
+      <td>1.612486</td>
+      <td>682.000000</td>
+      <td>17.0</td>
+    </tr>
+    <tr>
+      <th>65</th>
+      <td>65</td>
+      <td>0</td>
+      <td>Lawson</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.224992</td>
+      <td>149.088179</td>
+      <td>4.099591</td>
+      <td>1171.296865</td>
+      <td>14.0</td>
+    </tr>
+    <tr>
+      <th>66</th>
+      <td>66</td>
+      <td>1</td>
+      <td>Lyneham</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.239801</td>
+      <td>149.130735</td>
+      <td>2.738301</td>
+      <td>1966.819310</td>
+      <td>44.0</td>
+    </tr>
+    <tr>
+      <th>67</th>
+      <td>67</td>
+      <td>2</td>
+      <td>Lyons</td>
+      <td>Woden Valley</td>
+      <td>2606</td>
+      <td>-35.340558</td>
+      <td>149.073938</td>
+      <td>2.096756</td>
+      <td>6261.500000</td>
+      <td>54.0</td>
+    </tr>
+    <tr>
+      <th>68</th>
+      <td>68</td>
+      <td>0</td>
+      <td>Macarthur</td>
+      <td>Tuggeranong</td>
+      <td>2904</td>
+      <td>-35.405132</td>
+      <td>149.131673</td>
+      <td>3.992880</td>
+      <td>3044.733334</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>69</th>
+      <td>69</td>
+      <td>0</td>
+      <td>Macgregor</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.209774</td>
+      <td>149.011021</td>
+      <td>3.517380</td>
+      <td>686.500000</td>
+      <td>15.0</td>
+    </tr>
+    <tr>
+      <th>70</th>
+      <td>70</td>
+      <td>0</td>
+      <td>Macnamara</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.218657</td>
+      <td>148.976441</td>
+      <td>6.137284</td>
+      <td>3044.733334</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>71</th>
+      <td>71</td>
+      <td>2</td>
+      <td>Macquarie</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.251113</td>
+      <td>149.063306</td>
+      <td>3.207053</td>
+      <td>1499.100084</td>
+      <td>68.0</td>
+    </tr>
+    <tr>
+      <th>72</th>
+      <td>72</td>
+      <td>1</td>
+      <td>Mawson</td>
+      <td>Woden Valley</td>
+      <td>2607</td>
+      <td>-35.363368</td>
+      <td>149.098894</td>
+      <td>1.565181</td>
+      <td>6165.000000</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>73</th>
+      <td>73</td>
+      <td>0</td>
+      <td>McKellar</td>
+      <td>Belconnen</td>
+      <td>2617</td>
+      <td>-35.217463</td>
+      <td>149.077032</td>
+      <td>3.271774</td>
+      <td>1471.116882</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>74</th>
+      <td>74</td>
+      <td>1</td>
+      <td>Melba</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.210074</td>
+      <td>149.054127</td>
+      <td>2.172843</td>
+      <td>703.500000</td>
+      <td>19.0</td>
+    </tr>
+    <tr>
+      <th>75</th>
+      <td>75</td>
+      <td>0</td>
+      <td>Mitchell</td>
+      <td>Gungahlin</td>
+      <td>2911</td>
+      <td>-35.218893</td>
+      <td>149.136383</td>
+      <td>4.597390</td>
+      <td>3044.733334</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>76</th>
+      <td>76</td>
+      <td>1</td>
+      <td>Molonglo</td>
+      <td>Molonglo Valley</td>
+      <td>0</td>
+      <td>-35.299828</td>
+      <td>149.040199</td>
+      <td>0.833547</td>
+      <td>3044.733334</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>77</th>
+      <td>77</td>
+      <td>1</td>
+      <td>Monash</td>
+      <td>Tuggeranong</td>
+      <td>2904</td>
+      <td>-35.415738</td>
+      <td>149.090690</td>
+      <td>0.597095</td>
+      <td>737.000000</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>78</th>
+      <td>78</td>
+      <td>1</td>
+      <td>Moncrieff</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.158821</td>
+      <td>149.116306</td>
+      <td>2.328109</td>
+      <td>699.000000</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>79</th>
+      <td>79</td>
+      <td>2</td>
+      <td>Narrabundah</td>
+      <td>South Canberra</td>
+      <td>2604</td>
+      <td>-35.335692</td>
+      <td>149.149222</td>
+      <td>2.711774</td>
+      <td>11900.000000</td>
+      <td>36.0</td>
+    </tr>
+    <tr>
+      <th>80</th>
+      <td>80</td>
+      <td>1</td>
+      <td>Ngunnawal</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.172790</td>
+      <td>149.111468</td>
+      <td>1.298026</td>
+      <td>685.500000</td>
+      <td>11.0</td>
+    </tr>
+    <tr>
+      <th>81</th>
+      <td>81</td>
+      <td>1</td>
+      <td>Nicholls</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.187161</td>
+      <td>149.096481</td>
+      <td>2.635543</td>
+      <td>631.459689</td>
+      <td>17.0</td>
+    </tr>
+    <tr>
+      <th>82</th>
+      <td>82</td>
+      <td>2</td>
+      <td>O'Connor</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.256600</td>
+      <td>149.115597</td>
+      <td>1.765292</td>
+      <td>12800.000000</td>
+      <td>36.0</td>
+    </tr>
+    <tr>
+      <th>83</th>
+      <td>83</td>
+      <td>1</td>
+      <td>O'Malley</td>
+      <td>Woden Valley</td>
+      <td>2606</td>
+      <td>-35.351360</td>
+      <td>149.110687</td>
+      <td>1.518254</td>
+      <td>3044.733334</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>84</th>
+      <td>84</td>
+      <td>1</td>
+      <td>Oxley</td>
+      <td>Tuggeranong</td>
+      <td>2903</td>
+      <td>-35.409442</td>
+      <td>149.078648</td>
+      <td>1.771644</td>
+      <td>3044.733334</td>
+      <td>37.0</td>
+    </tr>
+    <tr>
+      <th>85</th>
+      <td>85</td>
+      <td>2</td>
+      <td>Page</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.238547</td>
+      <td>149.049940</td>
+      <td>1.381300</td>
+      <td>1401.158878</td>
+      <td>70.0</td>
+    </tr>
+    <tr>
+      <th>86</th>
+      <td>86</td>
+      <td>1</td>
+      <td>Palmerston</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.194461</td>
+      <td>149.119415</td>
+      <td>1.774984</td>
+      <td>727.500000</td>
+      <td>30.0</td>
+    </tr>
+    <tr>
+      <th>87</th>
+      <td>87</td>
+      <td>2</td>
+      <td>Parkes</td>
+      <td>South Canberra</td>
+      <td>2600</td>
+      <td>-35.295915</td>
+      <td>149.135156</td>
+      <td>2.279085</td>
+      <td>3044.733334</td>
+      <td>95.0</td>
+    </tr>
+    <tr>
+      <th>88</th>
+      <td>88</td>
+      <td>2</td>
+      <td>Pearce</td>
+      <td>Woden Valley</td>
+      <td>2607</td>
+      <td>-35.362170</td>
+      <td>149.083589</td>
+      <td>1.665477</td>
+      <td>6105.000000</td>
+      <td>40.0</td>
+    </tr>
+    <tr>
+      <th>89</th>
+      <td>89</td>
+      <td>1</td>
+      <td>Phillip</td>
+      <td>Woden Valley</td>
+      <td>2606</td>
+      <td>-35.347044</td>
+      <td>149.091009</td>
+      <td>0.417048</td>
+      <td>3044.733334</td>
+      <td>36.0</td>
+    </tr>
+    <tr>
+      <th>90</th>
+      <td>90</td>
+      <td>2</td>
+      <td>Red Hill</td>
+      <td>South Canberra</td>
+      <td>2603</td>
+      <td>-35.333438</td>
+      <td>149.120586</td>
+      <td>2.152429</td>
+      <td>11102.221571</td>
+      <td>28.0</td>
+    </tr>
+    <tr>
+      <th>91</th>
+      <td>91</td>
+      <td>2</td>
+      <td>Reid</td>
+      <td>North Canberra</td>
+      <td>2612</td>
+      <td>-35.282598</td>
+      <td>149.141221</td>
+      <td>2.173201</td>
+      <td>3044.733334</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>92</th>
+      <td>92</td>
+      <td>1</td>
+      <td>Richardson</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.427902</td>
+      <td>149.113947</td>
+      <td>2.121214</td>
+      <td>1241.254869</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>93</th>
+      <td>93</td>
+      <td>1</td>
+      <td>Rivett</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.347071</td>
+      <td>149.037983</td>
+      <td>0.979357</td>
+      <td>730.000000</td>
+      <td>23.0</td>
+    </tr>
+    <tr>
+      <th>94</th>
+      <td>94</td>
+      <td>2</td>
+      <td>Russell</td>
+      <td>North Canberra</td>
+      <td>2600</td>
+      <td>-35.297960</td>
+      <td>149.150279</td>
+      <td>2.657789</td>
+      <td>3044.733334</td>
+      <td>60.0</td>
+    </tr>
+    <tr>
+      <th>95</th>
+      <td>95</td>
+      <td>1</td>
+      <td>Scullin</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.234534</td>
+      <td>149.039072</td>
+      <td>0.871915</td>
+      <td>1249.250070</td>
+      <td>14.0</td>
+    </tr>
+    <tr>
+      <th>96</th>
+      <td>96</td>
+      <td>0</td>
+      <td>Spence</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.198732</td>
+      <td>149.064356</td>
+      <td>3.728122</td>
+      <td>516.770073</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>97</th>
+      <td>97</td>
+      <td>1</td>
+      <td>Stirling</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.349584</td>
+      <td>149.049358</td>
+      <td>0.702434</td>
+      <td>3044.733334</td>
+      <td>24.0</td>
+    </tr>
+    <tr>
+      <th>98</th>
+      <td>98</td>
+      <td>0</td>
+      <td>Strathnairn</td>
+      <td>Belconnen</td>
+      <td>2615</td>
+      <td>-35.232390</td>
+      <td>148.985554</td>
+      <td>5.259923</td>
+      <td>477.428868</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>99</th>
+      <td>99</td>
+      <td>0</td>
+      <td>Taylor</td>
+      <td>Gungahlin</td>
+      <td>2913</td>
+      <td>-35.146804</td>
+      <td>149.107199</td>
+      <td>3.867465</td>
+      <td>724.500000</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>100</th>
+      <td>100</td>
+      <td>0</td>
+      <td>Theodore</td>
+      <td>Tuggeranong</td>
+      <td>2905</td>
+      <td>-35.449611</td>
+      <td>149.119744</td>
+      <td>4.048983</td>
+      <td>642.500000</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>101</th>
+      <td>101</td>
+      <td>0</td>
+      <td>Throsby</td>
+      <td>Gungahlin</td>
+      <td>2914</td>
+      <td>-35.188954</td>
+      <td>149.161749</td>
+      <td>3.638973</td>
+      <td>713.500000</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>102</th>
+      <td>102</td>
+      <td>1</td>
+      <td>Torrens</td>
+      <td>Woden Valley</td>
+      <td>2607</td>
+      <td>-35.371950</td>
+      <td>149.087880</td>
+      <td>2.519382</td>
+      <td>883.500000</td>
+      <td>13.0</td>
+    </tr>
+    <tr>
+      <th>103</th>
+      <td>103</td>
+      <td>2</td>
+      <td>Turner</td>
+      <td>North Canberra</td>
+      <td>2612</td>
+      <td>-35.268870</td>
+      <td>149.124577</td>
+      <td>0.878674</td>
+      <td>3044.733334</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>104</th>
+      <td>104</td>
+      <td>1</td>
+      <td>Wanniassa</td>
+      <td>Tuggeranong</td>
+      <td>2903</td>
+      <td>-35.397664</td>
+      <td>149.090804</td>
+      <td>2.595079</td>
+      <td>699.000000</td>
+      <td>17.0</td>
+    </tr>
+    <tr>
+      <th>105</th>
+      <td>105</td>
+      <td>1</td>
+      <td>Waramanga</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.352815</td>
+      <td>149.062215</td>
+      <td>1.675379</td>
+      <td>757.500000</td>
+      <td>25.0</td>
+    </tr>
+    <tr>
+      <th>106</th>
+      <td>106</td>
+      <td>0</td>
+      <td>Watson</td>
+      <td>North Canberra</td>
+      <td>2602</td>
+      <td>-35.234823</td>
+      <td>149.159446</td>
+      <td>4.095278</td>
+      <td>5567.500000</td>
+      <td>15.0</td>
+    </tr>
+    <tr>
+      <th>107</th>
+      <td>107</td>
+      <td>2</td>
+      <td>Weetangera</td>
+      <td>Belconnen</td>
+      <td>2614</td>
+      <td>-35.250114</td>
+      <td>149.049737</td>
+      <td>2.591961</td>
+      <td>6934.720981</td>
+      <td>71.0</td>
+    </tr>
+    <tr>
+      <th>108</th>
+      <td>108</td>
+      <td>1</td>
+      <td>Weston</td>
+      <td>Weston Creek</td>
+      <td>2611</td>
+      <td>-35.332488</td>
+      <td>149.058736</td>
+      <td>1.567158</td>
+      <td>838.000000</td>
+      <td>22.0</td>
+    </tr>
+    <tr>
+      <th>109</th>
+      <td>109</td>
+      <td>0</td>
+      <td>Whitlam</td>
+      <td>Molonglo Valley</td>
+      <td>0</td>
+      <td>-35.278096</td>
+      <td>149.036398</td>
+      <td>2.943000</td>
+      <td>3044.733334</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>110</th>
+      <td>110</td>
+      <td>1</td>
+      <td>Wright</td>
+      <td>Molonglo Valley</td>
+      <td>2611</td>
+      <td>-35.319264</td>
+      <td>149.033617</td>
+      <td>1.652823</td>
+      <td>783.000000</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>111</th>
+      <td>111</td>
+      <td>2</td>
+      <td>Yarralumla</td>
+      <td>South Canberra</td>
+      <td>2600</td>
+      <td>-35.304041</td>
+      <td>149.098635</td>
+      <td>3.256987</td>
+      <td>15775.000000</td>
+      <td>21.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+#+end_export
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_cluster['Cluster'].value_counts()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  2    42
-  0    42
-  1    28
-  Name: Cluster, dtype: int64
-#+END_EXAMPLE
+#+results:
+: 1    44
+: 0    41
+: 2    27
+: Name: Cluster, dtype: int64
 
-**** Revisit statistics on clustered suburbs
-     :PROPERTIES:
-     :CUSTOM_ID: revisit-statistics-on-clustered-suburbs
-     :END:
+*** Revisit statistics on clustered suburbs
+    :PROPERTIES:
+    :CUSTOM_ID: revisit-statistics-on-clustered-suburbs
+    :END:
 
-#+BEGIN_SRC python
-  boxprops = dict(linestyle='-', linewidth=4, color='k')
-  medianprops = dict(linestyle='-', linewidth=4, color='k')
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none :file figures/suburbs_statistics_clusters.jpg
+boxprops = dict(linestyle='-', linewidth=4, color='k')
+medianprops = dict(linestyle='-', linewidth=4, color='k')
 
-  fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
 
-  bp1 = df_cluster.boxplot(column='Median Price',by='Cluster', ax=ax1,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+bp1 = df_cluster.boxplot(column='Median Price',by='Cluster', ax=ax1,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  bp2 = df_cluster.boxplot(column='venue count',by='Cluster', ax=ax2,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+bp2 = df_cluster.boxplot(column='venue count',by='Cluster', ax=ax2,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  bp3 = df_cluster.boxplot(column='Nearest',by='Cluster', ax=ax3,
-                      showfliers=True, showmeans=True,
-                      boxprops=boxprops, medianprops=medianprops,
-                      return_type='dict')
+bp3 = df_cluster.boxplot(column='Nearest',by='Cluster', ax=ax3,
+                    showfliers=True, showmeans=True,
+                    boxprops=boxprops, medianprops=medianprops,
+                    return_type='dict')
 
-  # boxplot style adjustments
-  adjust_boxplot_style(bp1)
-  adjust_boxplot_style(bp2)
-  adjust_boxplot_style(bp3)
+# boxplot style adjustments
+adjust_boxplot_style(bp1)
+adjust_boxplot_style(bp2)
+adjust_boxplot_style(bp3)
 
-  # get rid of "boxplot grouped by" title
-  plt.suptitle("")
+# get rid of "boxplot grouped by" title
+plt.suptitle("")
 
-  # label adjustment
-  ax1.set_title("Median price for suburbs \nin different towncenters", fontsize=20)
-  ax1.set_ylabel('Median Price (K)', fontsize=20)
-  ax1.set_xlabel('')
-  ax1.tick_params(axis='y', labelsize=20)
-  ax1.tick_params(axis='x', labelsize=20)
-  ax1.tick_params(axis="x", rotation=45)
+# label adjustment
+ax1.set_title("Median price for suburbs \nin different towncenters", fontsize=20)
+ax1.set_ylabel('Median Price (K)', fontsize=20)
+ax1.set_xlabel('')
+ax1.tick_params(axis='y', labelsize=20)
+ax1.tick_params(axis='x', labelsize=20)
+ax1.tick_params(axis="x", rotation=45)
 
-  ax2.set_title("Venue count for suburbs \nin different towncenters", fontsize=20)
-  ax2.set_ylabel('Venue numbers', fontsize=20)
-  ax2.set_xlabel('')
-  ax2.tick_params(axis='y', labelsize=20)
-  ax2.tick_params(axis='x', labelsize=20)
-  ax2.tick_params(axis="x", rotation=45)
+ax2.set_title("Venue count for suburbs \nin different towncenters", fontsize=20)
+ax2.set_ylabel('Venue numbers', fontsize=20)
+ax2.set_xlabel('')
+ax2.tick_params(axis='y', labelsize=20)
+ax2.tick_params(axis='x', labelsize=20)
+ax2.tick_params(axis="x", rotation=45)
 
-  ax3.set_title("Distance to nearest townceters for suburbs \nin different towncenters", fontsize=20)
-  ax3.set_ylabel('Distance (km)', fontsize=20)
-  ax3.set_xlabel('')
-  ax3.tick_params(axis='y', labelsize=20)
-  ax3.tick_params(axis='x', labelsize=20)
-  ax3.tick_params(axis="x", rotation=45)
+ax3.set_title("Distance to nearest townceters for suburbs \nin different towncenters", fontsize=20)
+ax3.set_ylabel('Distance (km)', fontsize=20)
+ax3.set_xlabel('')
+ax3.tick_params(axis='y', labelsize=20)
+ax3.tick_params(axis='x', labelsize=20)
+ax3.tick_params(axis="x", rotation=45)
 #+END_SRC
 
-[[file:22f7eee8c51aeed9de91beabe8953433a7529683.png]]
+#+results:
+[[file:figures/suburbs_statistics_clusters.jpg]]
+
 
 Now let's create a Folium map and add the clusterd suburbs together with
 towncenters. It is clear that suburbs in North and South Canberra have
@@ -1630,867 +2581,171 @@ been segmented into one category as these suburnbs. The other category
 are those very close to town centers while the rest suburbs make up the
 last category.
 
-#+BEGIN_SRC python
-  # create map
-  map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# create map
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
 
-  # set color scheme for the clusters
-  x = np.arange(kclusters)
-  ys = [i + x + (i*x)**2 for i in range(kclusters)]
-  colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
-  rainbow = [colors.rgb2hex(i) for i in colors_array]
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i*x)**2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
 
-  # add markers to the map
-  markers_colors = []
-  for lat, lon, poi, cluster in zip(df_cluster['Latitude'], df_cluster['Longitude'], df_cluster['Suburb'], df_cluster['Cluster']):
-      label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
-      folium.CircleMarker(
-          [lat, lon],
-          radius=5,
-          popup=label,
-          color=rainbow[cluster-1],
-          fill=True,
-          fill_color=rainbow[cluster-1],
-          fill_opacity=0.7).add_to(map_clusters)
-      
-  # add markers to towncenters
-  for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
-      label = '{}'.format(towncenter)
-      label = folium.Popup(label, parse_html=True)
-      folium.CircleMarker(
-          [lat, lng],
-          radius=30,
-          popup=label,
-          color='purple',
-          fill=True,
-          fill_color='#EDE3FF',
-          fill_opacity=0.3,
-          parse_html=False).add_to(map_clusters)
-         
-  map_clusters
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(df_cluster['Latitude'], df_cluster['Longitude'], df_cluster['Suburb'], df_cluster['Cluster']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster-1],
+        fill=True,
+        fill_color=rainbow[cluster-1],
+        fill_opacity=0.7).add_to(map_clusters)
+    
+# add markers to towncenters
+for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
+    label = '{}'.format(towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=30,
+        popup=label,
+        color='purple',
+        fill=True,
+        fill_color='#EDE3FF',
+        fill_opacity=0.3,
+        parse_html=False).add_to(map_clusters)
+       
+map_clusters
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  <folium.folium.Map at 0x7fc6cde9f6a0>
-#+END_EXAMPLE
-
-*** k-means clustering on venue category dataset
-    :PROPERTIES:
-    :CUSTOM_ID: k-means-clustering-on-venue-category-dataset
-    :END:
+** k-means clustering on venue category dataset
+   :PROPERTIES:
+   :CUSTOM_ID: k-means-clustering-on-venue-category-dataset
+   :END:
 
 Let use k-means to cluster the suburbs based on the venue category
 information in each suburb now. First find optimal number of cluster:
 
-#+BEGIN_SRC python
-  # canberra_venues = pd.read_csv('data/canberra_venues.csv')
-  canberra_venues.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# canberra_venues = pd.read_csv('data/canberra_venues.csv')
+canberra_venues.head()
 
-  # one hot encoding
-  canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
+# one hot encoding
+canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
 
-  # add suburb column back to dataframe
-  canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
+# add suburb column back to dataframe
+canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
 
-  # move Suburb column to the first column
-  list_column = canberra_onehot.columns.tolist()
-  number_column = int(list_column.index('Suburb'))
-  list_column = [list_column[number_column]] + list_column[:number_column] + list_column[number_column+1:] 
-  canberra_onehot = canberra_onehot[list_column]
+# move Suburb column to the first column
+list_column = canberra_onehot.columns.tolist()
+number_column = int(list_column.index('Suburb'))
+list_column = [list_column[number_column]] + list_column[:number_column] + list_column[number_column+1:] 
+canberra_onehot = canberra_onehot[list_column]
 
-  canberra_onehot.head()
+canberra_onehot.head()
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-    Suburb  Animal Shelter  Art Gallery  Arts & Crafts Store  Asian Restaurant  \
-  0  Acton               0            0                    0                 0   
-  1  Acton               0            0                    0                 0   
-  2  Acton               0            0                    0                 0   
-  3  Acton               0            0                    0                 0   
-  4  Acton               0            0                    0                 0   
-
-     Athletics & Sports  Australian Restaurant  Bakery  Bank  Bar  \
-  0                   0                      0       0     0    0   
-  1                   0                      0       0     0    0   
-  2                   0                      0       0     0    0   
-  3                   0                      0       0     0    0   
-  4                   0                      0       0     0    0   
-
-     Baseball Field  Baseball Stadium  Basketball Stadium  Bavarian Restaurant  \
-  0               0                 0                   0                    0   
-  1               0                 0                   0                    0   
-  2               0                 0                   0                    0   
-  3               0                 0                   0                    0   
-  4               0                 0                   0                    0   
-
-     Beach  Beer Bar  Bistro  Bookstore  Botanical Garden  Bowling Alley  \
-  0      0         0       0          0                 0              0   
-  1      0         0       0          0                 0              0   
-  2      0         0       0          0                 0              0   
-  3      0         0       0          0                 0              0   
-  4      0         0       0          0                 0              0   
-
-     Brewery  Bridge  Bubble Tea Shop  Buffet  Building  Burger Joint  \
-  0        0       0                0       0         0             0   
-  1        0       0                0       0         0             0   
-  2        0       0                0       0         0             0   
-  3        0       0                0       0         0             0   
-  4        0       0                0       0         0             0   
-
-     Bus Station  Bus Stop  Business Service  Café  Campground  \
-  0            0         0                 0     0           0   
-  1            0         0                 0     0           0   
-  2            0         0                 0     1           0   
-  3            0         0                 0     0           0   
-  4            0         0                 0     0           0   
-
-     Cantonese Restaurant  Child Care Service  Chinese Restaurant  \
-  0                     0                   0                   0   
-  1                     0                   0                   0   
-  2                     0                   0                   0   
-  3                     0                   0                   0   
-  4                     0                   0                   0   
-
-     Chocolate Shop  Climbing Gym  Clothing Store  Cocktail Bar  Coffee Shop  \
-  0               0             0               0             0            1   
-  1               0             0               0             0            0   
-  2               0             0               0             0            0   
-  3               0             0               0             0            1   
-  4               0             0               0             0            0   
-
-     Comic Shop  Concert Hall  Construction & Landscaping  Convenience Store  \
-  0           0             0                           0                  0   
-  1           0             1                           0                  0   
-  2           0             0                           0                  0   
-  3           0             0                           0                  0   
-  4           0             0                           0                  0   
-
-     Cricket Ground  Dance Studio  Deli / Bodega  Department Store  \
-  0               0             0              0                 0   
-  1               0             0              0                 0   
-  2               0             0              0                 0   
-  3               0             0              0                 0   
-  4               0             0              0                 0   
-
-     Dessert Shop  Dim Sum Restaurant  Diner  Discount Store  Doner Restaurant  \
-  0             0                   0      0               0                 0   
-  1             0                   0      0               0                 0   
-  2             0                   0      0               0                 0   
-  3             0                   0      0               0                 0   
-  4             0                   0      0               0                 0   
-
-     Donut Shop  Dumpling Restaurant  Electronics Store  Ethiopian Restaurant  \
-  0           0                    0                  0                     0   
-  1           0                    0                  0                     0   
-  2           0                    0                  0                     0   
-  3           0                    0                  0                     0   
-  4           0                    0                  0                     0   
-
-     Event Space  Exhibit  Farm  Farmers Market  Fast Food Restaurant  \
-  0            0        0     0               0                     0   
-  1            0        0     0               0                     0   
-  2            0        0     0               0                     0   
-  3            0        0     0               0                     0   
-  4            0        0     0               0                     0   
-
-     Filipino Restaurant  Fish & Chips Shop  Fish Market  Food & Drink Shop  \
-  0                    0                  0            0                  0   
-  1                    0                  0            0                  0   
-  2                    0                  0            0                  0   
-  3                    0                  0            0                  0   
-  4                    0                  0            0                  0   
-
-     Food Court  Football Stadium  Fountain  French Restaurant  \
-  0           0                 0         0                  0   
-  1           0                 0         0                  0   
-  2           0                 0         0                  0   
-  3           0                 0         0                  0   
-  4           0                 0         0                  0   
-
-     Fried Chicken Joint  Fruit & Vegetable Store  Furniture / Home Store  \
-  0                    0                        0                       0   
-  1                    0                        0                       0   
-  2                    0                        0                       0   
-  3                    0                        0                       0   
-  4                    0                        0                       0   
-
-     Garden  Garden Center  Gas Station  Gastropub  Gay Bar  Gift Shop  \
-  0       0              0            0          0        0          0   
-  1       0              0            0          0        0          0   
-  2       0              0            0          0        0          0   
-  3       0              0            0          0        0          0   
-  4       0              0            0          0        0          0   
-
-     Go Kart Track  Golf Course  Golf Driving Range  Gourmet Shop  \
-  0              0            0                   0             0   
-  1              0            0                   0             0   
-  2              0            0                   0             0   
-  3              0            0                   0             0   
-  4              0            0                   0             0   
-
-     Government Building  Grocery Store  Gym  Gym / Fitness Center  \
-  0                    0              0    0                     0   
-  1                    0              0    0                     0   
-  2                    0              0    0                     0   
-  3                    0              0    0                     0   
-  4                    0              0    0                     0   
-
-     Hardware Store  Historic Site  History Museum  Hostel  Hotel  Hotel Bar  \
-  0               0              0               0       0      0          0   
-  1               0              0               0       0      0          0   
-  2               0              0               0       0      0          0   
-  3               0              0               0       0      0          0   
-  4               0              0               0       0      0          0   
-
-     IT Services  Ice Cream Shop  Indian Restaurant  Indonesian Restaurant  \
-  0            0               0                  0                      0   
-  1            0               0                  0                      0   
-  2            0               0                  0                      0   
-  3            0               0                  0                      0   
-  4            0               0                  0                      0   
-
-     Intersection  Irish Pub  Italian Restaurant  Japanese Restaurant  \
-  0             0          0                   0                    0   
-  1             0          0                   0                    0   
-  2             0          0                   0                    0   
-  3             0          0                   0                    0   
-  4             0          0                   1                    0   
-
-     Juice Bar  Kebab Restaurant  Korean Restaurant  Lake  Lawyer  \
-  0          0                 0                  0     0       0   
-  1          0                 0                  0     0       0   
-  2          0                 0                  0     0       0   
-  3          0                 0                  0     0       0   
-  4          0                 0                  0     0       0   
-
-     Lebanese Restaurant  Library  Light Rail Station  Lighting Store  \
-  0                    0        0                   0               0   
-  1                    0        0                   0               0   
-  2                    0        0                   0               0   
-  3                    0        0                   0               0   
-  4                    0        0                   0               0   
-
-     Liquor Store  Lounge  Malay Restaurant  Market  Mediterranean Restaurant  \
-  0             0       0                 0       0                         0   
-  1             0       0                 0       0                         0   
-  2             0       0                 0       0                         0   
-  3             0       0                 0       0                         0   
-  4             0       0                 0       0                         0   
-
-     Memorial Site  Men's Store  Mexican Restaurant  Middle Eastern Restaurant  \
-  0              0            0                   0                          0   
-  1              0            0                   0                          0   
-  2              0            0                   0                          0   
-  3              0            0                   0                          0   
-  4              0            0                   0                          0   
-
-     Mobile Phone Shop  Molecular Gastronomy Restaurant  Monument / Landmark  \
-  0                  0                                0                    0   
-  1                  0                                0                    0   
-  2                  0                                0                    0   
-  3                  0                                0                    0   
-  4                  0                                0                    0   
-
-     Motel  Mountain  Multiplex  Museum  Music Venue  Nature Preserve  \
-  0      0         0          0       0            0                0   
-  1      0         0          0       0            0                0   
-  2      0         0          0       0            0                0   
-  3      0         0          0       0            0                0   
-  4      0         0          0       0            0                0   
-
-     Newsstand  Noodle House  Organic Grocery  Outdoor Sculpture  \
-  0          0             0                0                  0   
-  1          0             0                0                  0   
-  2          0             0                0                  0   
-  3          0             0                0                  0   
-  4          0             0                0                  0   
-
-     Outdoor Supply Store  Paintball Field  Paper / Office Supplies Store  Park  \
-  0                     0                0                              0     0   
-  1                     0                0                              0     0   
-  2                     0                0                              0     0   
-  3                     0                0                              0     0   
-  4                     0                0                              0     0   
-
-     Parking  Performing Arts Venue  Persian Restaurant  Pet Store  Pharmacy  \
-  0        0                      0                   0          0         0   
-  1        0                      0                   0          0         0   
-  2        0                      0                   0          0         0   
-  3        0                      0                   0          0         0   
-  4        0                      0                   0          0         0   
-
-     Pizza Place  Playground  Plaza  Pool  Post Office  Pub  Public Art  \
-  0            0           0      0     0            0    0           0   
-  1            0           0      0     0            0    0           0   
-  2            0           0      0     0            0    0           0   
-  3            0           0      0     0            0    0           0   
-  4            0           0      0     0            0    0           0   
-
-     RV Park  Racecourse  Restaurant  Rooftop Bar  Rugby Pitch  Salad Place  \
-  0        0           0           0            0            0            0   
-  1        0           0           0            0            0            0   
-  2        0           0           0            0            0            0   
-  3        0           0           0            0            0            0   
-  4        0           0           0            0            0            0   
-
-     Sandwich Place  Scenic Lookout  Science Museum  Sculpture Garden  \
-  0               0               0               0                 0   
-  1               0               0               0                 0   
-  2               0               0               0                 0   
-  3               0               0               0                 0   
-  4               0               0               0                 0   
-
-     Shipping Store  Shopping Mall  Shopping Plaza  Skate Park  Skating Rink  \
-  0               0              0               0           0             0   
-  1               0              0               0           0             0   
-  2               0              0               0           0             0   
-  3               0              0               0           0             0   
-  4               0              0               0           0             0   
-
-     Soccer Field  Social Club  South Indian Restaurant  Speakeasy  \
-  0             0            0                        0          0   
-  1             0            0                        0          0   
-  2             0            0                        0          0   
-  3             0            0                        0          0   
-  4             0            0                        0          0   
-
-     Sporting Goods Shop  Sports Bar  Sports Club  Steakhouse  Supermarket  \
-  0                    0           0            0           0            0   
-  1                    0           0            0           0            0   
-  2                    0           0            0           0            0   
-  3                    0           0            0           0            0   
-  4                    0           0            0           0            0   
-
-     Sushi Restaurant  Szechuan Restaurant  Tapas Restaurant  Tea Room  \
-  0                 0                    0                 0         0   
-  1                 0                    0                 0         0   
-  2                 0                    0                 0         0   
-  3                 0                    0                 0         0   
-  4                 0                    0                 0         0   
-
-     Thai Restaurant  Theater  Theme Park Ride / Attraction  \
-  0                0        0                             0   
-  1                0        0                             0   
-  2                0        0                             0   
-  3                0        0                             0   
-  4                0        0                             0   
-
-     Thrift / Vintage Store  Tiki Bar  Tourist Information Center  \
-  0                       0         0                           0   
-  1                       0         0                           0   
-  2                       0         0                           0   
-  3                       0         0                           0   
-  4                       0         0                           0   
-
-     Toy / Game Store  Trail  Train Station  Turkish Restaurant  \
-  0                 0      0              0                   0   
-  1                 0      0              0                   0   
-  2                 0      0              0                   0   
-  3                 0      0              0                   0   
-  4                 0      0              0                   0   
-
-     Vegetarian / Vegan Restaurant  Veterinarian  Vietnamese Restaurant  \
-  0                              0             0                      0   
-  1                              0             0                      0   
-  2                              0             0                      0   
-  3                              0             0                      0   
-  4                              0             0                      0   
-
-     Volleyball Court  Water Park  Waterfront  Whisky Bar  Wine Bar  Winery  \
-  0                 0           0           0           0         0       0   
-  1                 0           0           0           0         0       0   
-  2                 0           0           0           0         0       0   
-  3                 0           0           0           0         0       0   
-  4                 0           0           0           0         0       0   
-
-     Women's Store  Yoga Studio  Zoo  
-  0              0            0    0  
-  1              0            0    0  
-  2              0            0    0  
-  3              0            0    0  
-  4              0            0    0  
-#+END_EXAMPLE
 
 Now let's group rows by suburb and by taking the mean of the frequency
 of occurrence of each category:
 
-#+BEGIN_SRC python
-  canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
-  canberra_grouped.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
+canberra_grouped.head()
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-      Suburb  Animal Shelter  Art Gallery  Arts & Crafts Store  \
-  0    Acton             0.0          0.0                  0.0   
-  1  Ainslie             0.0          0.0                  0.0   
-  2   Amaroo             0.0          0.0                  0.0   
-  3   Aranda             0.0          0.0                  0.0   
-  4    Banks             0.0          0.0                  0.0   
-
-     Asian Restaurant  Athletics & Sports  Australian Restaurant    Bakery  \
-  0          0.010000                 0.0               0.010000  0.000000   
-  1          0.049180                 0.0               0.032787  0.016393   
-  2          0.026316                 0.0               0.000000  0.000000   
-  3          0.000000                 0.0               0.000000  0.034483   
-  4          0.000000                 0.0               0.000000  0.000000   
-
-     Bank       Bar  Baseball Field  Baseball Stadium  Basketball Stadium  \
-  0   0.0  0.010000             0.0               0.0                 0.0   
-  1   0.0  0.000000             0.0               0.0                 0.0   
-  2   0.0  0.026316             0.0               0.0                 0.0   
-  3   0.0  0.034483             0.0               0.0                 0.0   
-  4   0.0  0.000000             0.0               0.0                 0.0   
-
-     Bavarian Restaurant  Beach  Beer Bar    Bistro  Bookstore  \
-  0                  0.0    0.0      0.01  0.000000   0.010000   
-  1                  0.0    0.0      0.00  0.016393   0.000000   
-  2                  0.0    0.0      0.00  0.000000   0.000000   
-  3                  0.0    0.0      0.00  0.000000   0.034483   
-  4                  0.0    0.0      0.00  0.111111   0.000000   
-
-     Botanical Garden  Bowling Alley   Brewery  Bridge  Bubble Tea Shop  Buffet  \
-  0              0.01            0.0  0.000000     0.0              0.0     0.0   
-  1              0.00            0.0  0.016393     0.0              0.0     0.0   
-  2              0.00            0.0  0.000000     0.0              0.0     0.0   
-  3              0.00            0.0  0.000000     0.0              0.0     0.0   
-  4              0.00            0.0  0.000000     0.0              0.0     0.0   
-
-     Building  Burger Joint  Bus Station  Bus Stop  Business Service      Café  \
-  0       0.0      0.020000          0.0       0.0          0.000000  0.080000   
-  1       0.0      0.000000          0.0       0.0          0.000000  0.147541   
-  2       0.0      0.000000          0.0       0.0          0.026316  0.105263   
-  3       0.0      0.034483          0.0       0.0          0.000000  0.103448   
-  4       0.0      0.000000          0.0       0.0          0.000000  0.000000   
-
-     Campground  Cantonese Restaurant  Child Care Service  Chinese Restaurant  \
-  0         0.0                   0.0                 0.0            0.020000   
-  1         0.0                   0.0                 0.0            0.065574   
-  2         0.0                   0.0                 0.0            0.000000   
-  3         0.0                   0.0                 0.0            0.034483   
-  4         0.0                   0.0                 0.0            0.000000   
-
-     Chocolate Shop  Climbing Gym  Clothing Store  Cocktail Bar  Coffee Shop  \
-  0            0.01           0.0             0.0          0.01     0.060000   
-  1            0.00           0.0             0.0          0.00     0.032787   
-  2            0.00           0.0             0.0          0.00     0.026316   
-  3            0.00           0.0             0.0          0.00     0.000000   
-  4            0.00           0.0             0.0          0.00     0.000000   
-
-     Comic Shop  Concert Hall  Construction & Landscaping  Convenience Store  \
-  0        0.01          0.01                         0.0           0.000000   
-  1        0.00          0.00                         0.0           0.000000   
-  2        0.00          0.00                         0.0           0.026316   
-  3        0.00          0.00                         0.0           0.000000   
-  4        0.00          0.00                         0.0           0.000000   
-
-     Cricket Ground  Dance Studio  Deli / Bodega  Department Store  \
-  0             0.0           0.0            0.0          0.010000   
-  1             0.0           0.0            0.0          0.000000   
-  2             0.0           0.0            0.0          0.052632   
-  3             0.0           0.0            0.0          0.000000   
-  4             0.0           0.0            0.0          0.000000   
-
-     Dessert Shop  Dim Sum Restaurant  Diner  Discount Store  Doner Restaurant  \
-  0           0.0                0.01    0.0             0.0               0.0   
-  1           0.0                0.00    0.0             0.0               0.0   
-  2           0.0                0.00    0.0             0.0               0.0   
-  3           0.0                0.00    0.0             0.0               0.0   
-  4           0.0                0.00    0.0             0.0               0.0   
-
-     Donut Shop  Dumpling Restaurant  Electronics Store  Ethiopian Restaurant  \
-  0    0.000000             0.000000               0.01                   0.0   
-  1    0.000000             0.016393               0.00                   0.0   
-  2    0.026316             0.000000               0.00                   0.0   
-  3    0.000000             0.000000               0.00                   0.0   
-  4    0.000000             0.000000               0.00                   0.0   
-
-     Event Space  Exhibit  Farm  Farmers Market  Fast Food Restaurant  \
-  0          0.0      0.0   0.0             0.0              0.000000   
-  1          0.0      0.0   0.0             0.0              0.016393   
-  2          0.0      0.0   0.0             0.0              0.105263   
-  3          0.0      0.0   0.0             0.0              0.000000   
-  4          0.0      0.0   0.0             0.0              0.111111   
-
-     Filipino Restaurant  Fish & Chips Shop  Fish Market  Food & Drink Shop  \
-  0                  0.0           0.010000          0.0               0.01   
-  1                  0.0           0.016393          0.0               0.00   
-  2                  0.0           0.000000          0.0               0.00   
-  3                  0.0           0.000000          0.0               0.00   
-  4                  0.0           0.000000          0.0               0.00   
-
-     Food Court  Football Stadium  Fountain  French Restaurant  \
-  0        0.01               0.0       0.0                0.0   
-  1        0.00               0.0       0.0                0.0   
-  2        0.00               0.0       0.0                0.0   
-  3        0.00               0.0       0.0                0.0   
-  4        0.00               0.0       0.0                0.0   
-
-     Fried Chicken Joint  Fruit & Vegetable Store  Furniture / Home Store  \
-  0             0.000000                 0.000000                     0.0   
-  1             0.000000                 0.000000                     0.0   
-  2             0.000000                 0.000000                     0.0   
-  3             0.000000                 0.034483                     0.0   
-  4             0.111111                 0.000000                     0.0   
-
-     Garden  Garden Center  Gas Station  Gastropub  Gay Bar  Gift Shop  \
-  0     0.0            0.0     0.000000        0.0     0.01        0.0   
-  1     0.0            0.0     0.016393        0.0     0.00        0.0   
-  2     0.0            0.0     0.000000        0.0     0.00        0.0   
-  3     0.0            0.0     0.034483        0.0     0.00        0.0   
-  4     0.0            0.0     0.000000        0.0     0.00        0.0   
-
-     Go Kart Track  Golf Course  Golf Driving Range  Gourmet Shop  \
-  0            0.0          0.0                 0.0           0.0   
-  1            0.0          0.0                 0.0           0.0   
-  2            0.0          0.0                 0.0           0.0   
-  3            0.0          0.0                 0.0           0.0   
-  4            0.0          0.0                 0.0           0.0   
-
-     Government Building  Grocery Store       Gym  Gym / Fitness Center  \
-  0                  0.0       0.010000  0.010000                   0.0   
-  1                  0.0       0.049180  0.000000                   0.0   
-  2                  0.0       0.026316  0.000000                   0.0   
-  3                  0.0       0.034483  0.103448                   0.0   
-  4                  0.0       0.111111  0.000000                   0.0   
-
-     Hardware Store  Historic Site  History Museum  Hostel     Hotel  Hotel Bar  \
-  0        0.000000            0.0            0.02    0.01  0.070000       0.01   
-  1        0.000000            0.0            0.00    0.00  0.081967       0.00   
-  2        0.026316            0.0            0.00    0.00  0.000000       0.00   
-  3        0.000000            0.0            0.00    0.00  0.034483       0.00   
-  4        0.000000            0.0            0.00    0.00  0.000000       0.00   
-
-     IT Services  Ice Cream Shop  Indian Restaurant  Indonesian Restaurant  \
-  0          0.0        0.000000           0.010000                   0.01   
-  1          0.0        0.016393           0.016393                   0.00   
-  2          0.0        0.026316           0.026316                   0.00   
-  3          0.0        0.000000           0.000000                   0.00   
-  4          0.0        0.000000           0.000000                   0.00   
-
-     Intersection  Irish Pub  Italian Restaurant  Japanese Restaurant  \
-  0           0.0       0.01            0.040000             0.030000   
-  1           0.0       0.00            0.000000             0.016393   
-  2           0.0       0.00            0.026316             0.026316   
-  3           0.0       0.00            0.000000             0.000000   
-  4           0.0       0.00            0.000000             0.000000   
-
-     Juice Bar  Kebab Restaurant  Korean Restaurant      Lake  Lawyer  \
-  0        0.0               0.0           0.010000  0.000000     0.0   
-  1        0.0               0.0           0.016393  0.000000     0.0   
-  2        0.0               0.0           0.026316  0.026316     0.0   
-  3        0.0               0.0           0.000000  0.000000     0.0   
-  4        0.0               0.0           0.000000  0.000000     0.0   
-
-     Lebanese Restaurant  Library  Light Rail Station  Lighting Store  \
-  0                  0.0     0.01                 0.0             0.0   
-  1                  0.0     0.00                 0.0             0.0   
-  2                  0.0     0.00                 0.0             0.0   
-  3                  0.0     0.00                 0.0             0.0   
-  4                  0.0     0.00                 0.0             0.0   
-
-     Liquor Store  Lounge  Malay Restaurant    Market  Mediterranean Restaurant  \
-  0      0.000000    0.01               0.0  0.000000                  0.000000   
-  1      0.049180    0.00               0.0  0.000000                  0.016393   
-  2      0.000000    0.00               0.0  0.000000                  0.000000   
-  3      0.034483    0.00               0.0  0.034483                  0.000000   
-  4      0.000000    0.00               0.0  0.000000                  0.000000   
-
-     Memorial Site  Men's Store  Mexican Restaurant  Middle Eastern Restaurant  \
-  0            0.0          0.0            0.040000                        0.0   
-  1            0.0          0.0            0.000000                        0.0   
-  2            0.0          0.0            0.000000                        0.0   
-  3            0.0          0.0            0.034483                        0.0   
-  4            0.0          0.0            0.000000                        0.0   
-
-     Mobile Phone Shop  Molecular Gastronomy Restaurant  Monument / Landmark  \
-  0           0.000000                         0.000000                 0.01   
-  1           0.000000                         0.016393                 0.00   
-  2           0.026316                         0.000000                 0.00   
-  3           0.000000                         0.000000                 0.00   
-  4           0.000000                         0.000000                 0.00   
-
-     Motel  Mountain  Multiplex  Museum  Music Venue  Nature Preserve  \
-  0    0.0  0.000000       0.01     0.0         0.01         0.000000   
-  1    0.0  0.016393       0.00     0.0         0.00         0.016393   
-  2    0.0  0.000000       0.00     0.0         0.00         0.026316   
-  3    0.0  0.000000       0.00     0.0         0.00         0.034483   
-  4    0.0  0.000000       0.00     0.0         0.00         0.000000   
-
-     Newsstand  Noodle House  Organic Grocery  Outdoor Sculpture  \
-  0   0.000000      0.020000              0.0           0.000000   
-  1   0.016393      0.016393              0.0           0.000000   
-  2   0.000000      0.026316              0.0           0.000000   
-  3   0.034483      0.000000              0.0           0.034483   
-  4   0.000000      0.000000              0.0           0.000000   
-
-     Outdoor Supply Store  Paintball Field  Paper / Office Supplies Store  Park  \
-  0                   0.0              0.0                            0.0  0.02   
-  1                   0.0              0.0                            0.0  0.00   
-  2                   0.0              0.0                            0.0  0.00   
-  3                   0.0              0.0                            0.0  0.00   
-  4                   0.0              0.0                            0.0  0.00   
-
-     Parking  Performing Arts Venue  Persian Restaurant  Pet Store  Pharmacy  \
-  0      0.0                    0.0            0.000000   0.000000  0.000000   
-  1      0.0                    0.0            0.000000   0.000000  0.000000   
-  2      0.0                    0.0            0.026316   0.000000  0.026316   
-  3      0.0                    0.0            0.000000   0.034483  0.000000   
-  4      0.0                    0.0            0.000000   0.000000  0.000000   
-
-     Pizza Place  Playground  Plaza      Pool  Post Office       Pub  \
-  0     0.000000    0.000000   0.02  0.010000          0.0  0.000000   
-  1     0.016393    0.000000   0.00  0.016393          0.0  0.016393   
-  2     0.000000    0.026316   0.00  0.000000          0.0  0.000000   
-  3     0.000000    0.000000   0.00  0.000000          0.0  0.000000   
-  4     0.111111    0.000000   0.00  0.000000          0.0  0.000000   
-
-     Public Art  RV Park  Racecourse  Restaurant  Rooftop Bar  Rugby Pitch  \
-  0         0.0      0.0         0.0        0.01          0.0          0.0   
-  1         0.0      0.0         0.0        0.00          0.0          0.0   
-  2         0.0      0.0         0.0        0.00          0.0          0.0   
-  3         0.0      0.0         0.0        0.00          0.0          0.0   
-  4         0.0      0.0         0.0        0.00          0.0          0.0   
-
-     Salad Place  Sandwich Place  Scenic Lookout  Science Museum  \
-  0          0.0        0.020000        0.000000             0.0   
-  1          0.0        0.016393        0.016393             0.0   
-  2          0.0        0.026316        0.000000             0.0   
-  3          0.0        0.000000        0.000000             0.0   
-  4          0.0        0.111111        0.000000             0.0   
-
-     Sculpture Garden  Shipping Store  Shopping Mall  Shopping Plaza  \
-  0               0.0             0.0       0.010000        0.000000   
-  1               0.0             0.0       0.000000        0.000000   
-  2               0.0             0.0       0.026316        0.052632   
-  3               0.0             0.0       0.000000        0.000000   
-  4               0.0             0.0       0.000000        0.000000   
-
-     Skate Park  Skating Rink  Soccer Field  Social Club  \
-  0         0.0           0.0           0.0     0.000000   
-  1         0.0           0.0           0.0     0.016393   
-  2         0.0           0.0           0.0     0.026316   
-  3         0.0           0.0           0.0     0.034483   
-  4         0.0           0.0           0.0     0.000000   
-
-     South Indian Restaurant  Speakeasy  Sporting Goods Shop  Sports Bar  \
-  0                      0.0       0.01                  0.0         0.0   
-  1                      0.0       0.00                  0.0         0.0   
-  2                      0.0       0.00                  0.0         0.0   
-  3                      0.0       0.00                  0.0         0.0   
-  4                      0.0       0.00                  0.0         0.0   
-
-     Sports Club  Steakhouse  Supermarket  Sushi Restaurant  \
-  0     0.010000        0.01     0.020000              0.01   
-  1     0.016393        0.00     0.000000              0.00   
-  2     0.000000        0.00     0.078947              0.00   
-  3     0.034483        0.00     0.068966              0.00   
-  4     0.000000        0.00     0.222222              0.00   
-
-     Szechuan Restaurant  Tapas Restaurant  Tea Room  Thai Restaurant  Theater  \
-  0                 0.01              0.01       0.0         0.030000     0.01   
-  1                 0.00              0.00       0.0         0.016393     0.00   
-  2                 0.00              0.00       0.0         0.000000     0.00   
-  3                 0.00              0.00       0.0         0.000000     0.00   
-  4                 0.00              0.00       0.0         0.000000     0.00   
-
-     Theme Park Ride / Attraction  Thrift / Vintage Store  Tiki Bar  \
-  0                          0.01                0.000000      0.01   
-  1                          0.00                0.000000      0.00   
-  2                          0.00                0.000000      0.00   
-  3                          0.00                0.034483      0.00   
-  4                          0.00                0.000000      0.00   
-
-     Tourist Information Center  Toy / Game Store     Trail  Train Station  \
-  0                        0.01          0.010000  0.000000            0.0   
-  1                        0.00          0.000000  0.016393            0.0   
-  2                        0.00          0.000000  0.000000            0.0   
-  3                        0.00          0.000000  0.000000            0.0   
-  4                        0.00          0.111111  0.000000            0.0   
-
-     Turkish Restaurant  Vegetarian / Vegan Restaurant  Veterinarian  \
-  0            0.000000                       0.000000           0.0   
-  1            0.000000                       0.032787           0.0   
-  2            0.000000                       0.000000           0.0   
-  3            0.034483                       0.000000           0.0   
-  4            0.000000                       0.000000           0.0   
-
-     Vietnamese Restaurant  Volleyball Court  Water Park  Waterfront  \
-  0               0.020000               0.0    0.000000         0.0   
-  1               0.032787               0.0    0.000000         0.0   
-  2               0.000000               0.0    0.000000         0.0   
-  3               0.000000               0.0    0.034483         0.0   
-  4               0.000000               0.0    0.000000         0.0   
-
-     Whisky Bar  Wine Bar  Winery  Women's Store  Yoga Studio  Zoo  
-  0        0.01      0.02     0.0            0.0          0.0  0.0  
-  1        0.00      0.00     0.0            0.0          0.0  0.0  
-  2        0.00      0.00     0.0            0.0          0.0  0.0  
-  3        0.00      0.00     0.0            0.0          0.0  0.0  
-  4        0.00      0.00     0.0            0.0          0.0  0.0  
-#+END_EXAMPLE
 
 Run through different k values:
 
-#+BEGIN_SRC python
-  canberra_grouped_clustering = canberra_grouped.drop('Suburb', 1)
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+canberra_grouped_clustering = canberra_grouped.drop('Suburb', 1)
 
-  distortions = []
-  K = range(1,10)
-  for k in K:
-      kmeanModel = KMeans(n_clusters=k, random_state=0).fit(canberra_grouped_clustering)
-      distortions.append(sum(np.min(cdist(canberra_grouped_clustering, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / canberra_grouped_clustering.shape[0])
+distortions = []
+K = range(1,10)
+for k in K:
+    kmeanModel = KMeans(n_clusters=k, random_state=0).fit(canberra_grouped_clustering)
+    distortions.append(sum(np.min(cdist(canberra_grouped_clustering, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / canberra_grouped_clustering.shape[0])
 
-  #There are different metric distance function for spatial distance. 
-  #I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
+#There are different metric distance function for spatial distance. 
+#I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
 
-  # Plot the elbow
-  plt.plot(K, distortions, 'bx-')
-  plt.xlabel('k')
-  plt.ylabel('Distortion')
-  plt.title('The Elbow Method showing the optimal k')
-  plt.show()
+# Plot the elbow
+plt.plot(K, distortions, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Distortion')
+plt.title('The Elbow Method showing the optimal k')
+plt.show()
 #+END_SRC
 
-[[file:52ac567c590976f332d53d8da7361977125a7786.png]]
 
 Use optimal number 4 to rerun the k-means clustering:
 
-#+BEGIN_SRC python
-  # set number of clusters
-  kclusters = 4
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# set number of clusters
+kclusters = 4
 
-  # run k-means clustering
-  kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(canberra_grouped_clustering)
+# run k-means clustering
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(canberra_grouped_clustering)
 
-  # check cluster labels generated for each row in the dataframe
-  labels = kmeans.labels_
-  df_venues['Cluster'] = labels
-  df_venues.head()
+# check cluster labels generated for each row in the dataframe
+labels = kmeans.labels_
+df_venues['Cluster'] = labels
+df_venues.head()
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-      Suburb 1st Most Common Venue 2nd Most Common Venue 3rd Most Common Venue  \
-  0    Acton                  Café                 Hotel           Coffee Shop   
-  1  Ainslie                  Café                 Hotel    Chinese Restaurant   
-  2   Amaroo                  Café  Fast Food Restaurant           Supermarket   
-  3   Aranda                   Gym                  Café           Supermarket   
-  4    Banks           Supermarket        Sandwich Place   Fried Chicken Joint   
-
-    4th Most Common Venue 5th Most Common Venue 6th Most Common Venue  \
-  0    Mexican Restaurant    Italian Restaurant       Thai Restaurant   
-  1          Liquor Store      Asian Restaurant         Grocery Store   
-  2        Shopping Plaza      Department Store        Sandwich Place   
-  3                 Hotel    Chinese Restaurant             Bookstore   
-  4                Bistro      Toy / Game Store  Fast Food Restaurant   
-
-     7th Most Common Venue          8th Most Common Venue 9th Most Common Venue  \
-  0    Japanese Restaurant                 Sandwich Place                 Plaza   
-  1  Vietnamese Restaurant  Vegetarian / Vegan Restaurant           Coffee Shop   
-  2            Social Club              Mobile Phone Shop         Shopping Mall   
-  3           Liquor Store                    Gas Station                Market   
-  4          Grocery Store                    Pizza Place  Ethiopian Restaurant   
-
-    10th Most Common Venue  Cluster  
-  0           Noodle House        3  
-  1  Australian Restaurant        3  
-  2            Coffee Shop        3  
-  3            Sports Club        3  
-  4      Fish & Chips Shop        2  
-#+END_EXAMPLE
-
-#+BEGIN_SRC python
-  df_venues_merged = pd.merge(df_can, df_venues, left_on='Suburb', right_on='Suburb', how='inner')
-  df_venues_merged.head()
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_venues_merged = pd.merge(df_can, df_venues, left_on='Suburb', right_on='Suburb', how='inner')
+df_venues_merged.head()
 #+END_SRC
-
-#+BEGIN_EXAMPLE
-      Suburb      Towncenter  Postcode   Latitude   Longitude   Nearest  \
-  0    Acton  North Canberra      2601 -35.285232  149.112968  2.921057   
-  1  Ainslie  North Canberra      2602 -35.262195  149.147880  1.413531   
-  2   Amaroo       Gungahlin      2914 -35.169587  149.128021  1.106799   
-  3   Aranda       Belconnen      2614 -35.258055  149.080426  4.783948   
-  4    Banks     Tuggeranong      2906 -35.471889  149.099657  5.702031   
-
-     Median Price  venue count 1st Most Common Venue 2nd Most Common Venue  \
-  0   3044.733334        100.0                  Café                 Hotel   
-  1  14295.000000         61.0                  Café                 Hotel   
-  2    726.000000         38.0                  Café  Fast Food Restaurant   
-  3   3044.733334         29.0                   Gym                  Café   
-  4    655.000000          9.0           Supermarket        Sandwich Place   
-
-    3rd Most Common Venue 4th Most Common Venue 5th Most Common Venue  \
-  0           Coffee Shop    Mexican Restaurant    Italian Restaurant   
-  1    Chinese Restaurant          Liquor Store      Asian Restaurant   
-  2           Supermarket        Shopping Plaza      Department Store   
-  3           Supermarket                 Hotel    Chinese Restaurant   
-  4   Fried Chicken Joint                Bistro      Toy / Game Store   
-
-    6th Most Common Venue  7th Most Common Venue          8th Most Common Venue  \
-  0       Thai Restaurant    Japanese Restaurant                 Sandwich Place   
-  1         Grocery Store  Vietnamese Restaurant  Vegetarian / Vegan Restaurant   
-  2        Sandwich Place            Social Club              Mobile Phone Shop   
-  3             Bookstore           Liquor Store                    Gas Station   
-  4  Fast Food Restaurant          Grocery Store                    Pizza Place   
-
-    9th Most Common Venue 10th Most Common Venue  Cluster  
-  0                 Plaza           Noodle House        3  
-  1           Coffee Shop  Australian Restaurant        3  
-  2         Shopping Mall            Coffee Shop        3  
-  3                Market            Sports Club        3  
-  4  Ethiopian Restaurant      Fish & Chips Shop        2  
-#+END_EXAMPLE
 
 Now let's create a Folium map and use cluster labels from venue
 categories:
 
-#+BEGIN_SRC python
-  # create map
-  map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# create map
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
 
-  # set color scheme for the clusters
-  x = np.arange(kclusters)
-  ys = [i + x + (i*x)**2 for i in range(kclusters)]
-  colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
-  rainbow = [colors.rgb2hex(i) for i in colors_array]
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i*x)**2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
 
-  # add markers to the map
-  markers_colors = []
-  for lat, lon, poi, cluster in zip(df_venues_merged['Latitude'], df_venues_merged['Longitude'], df_venues_merged['Suburb'], df_venues_merged['Cluster']):
-      label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
-      folium.CircleMarker(
-          [lat, lon],
-          radius=5,
-          popup=label,
-          color=rainbow[cluster-1],
-          fill=True,
-          fill_color=rainbow[cluster-1],
-          fill_opacity=0.7).add_to(map_clusters)
-      
-  # add markers to towncenters
-  for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
-      label = '{}'.format(towncenter)
-      label = folium.Popup(label, parse_html=True)
-      folium.CircleMarker(
-          [lat, lng],
-          radius=30,
-          popup=label,
-          color='purple',
-          fill=True,
-          fill_color='#EDE3FF',
-          fill_opacity=0.3,
-          parse_html=False).add_to(map_clusters)
-         
-  map_clusters
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(df_venues_merged['Latitude'], df_venues_merged['Longitude'], df_venues_merged['Suburb'], df_venues_merged['Cluster']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster-1],
+        fill=True,
+        fill_color=rainbow[cluster-1],
+        fill_opacity=0.7).add_to(map_clusters)
+    
+# add markers to towncenters
+for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
+    label = '{}'.format(towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=30,
+        popup=label,
+        color='purple',
+        fill=True,
+        fill_color='#EDE3FF',
+        fill_opacity=0.3,
+        parse_html=False).add_to(map_clusters)
+       
+map_clusters
 #+END_SRC
 
-#+BEGIN_EXAMPLE
-  <folium.folium.Map at 0x7fc6cc23f5f8>
-#+END_EXAMPLE
-
-** Results and Discussion
-   :PROPERTIES:
-   :CUSTOM_ID: results-and-discussion-
-   :END:
+* Results and Discussion
+  :PROPERTIES:
+  :CUSTOM_ID: results-and-discussion-
+  :END:
 
 Using the main dataset, most cluster 1 suburbs are located at the inner
 north or south Canberra. While these suburbs are well established with
@@ -2514,10 +2769,10 @@ Based on the above analysis, hopefully our young family should now have
 more information to refere to when they finnaly decide which suburb to
 settle in.
 
-** Conclusion
-   :PROPERTIES:
-   :CUSTOM_ID: conclusion-
-   :END:
+* Conclusion
+  :PROPERTIES:
+  :CUSTOM_ID: conclusion-
+  :END:
 
 In this study, various techniques varing from webscraping to open
 dataset have been used to collect data related to Canberra suburbs.
