@@ -1,6 +1,6 @@
 #+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline
 #+options: author:t broken-links:nil c:nil creator:nil
-#+options: d:(not "LOGBOOK") date:t e:t email:nil f:t inline:t num:t
+#+options: d:(not "LOGBOOK") date:nil e:t email:nil f:t inline:t num:t
 #+options: p:nil pri:nil prop:nil stat:t tags:t tasks:t tex:t
 #+options: timestamp:t title:t toc:t todo:t |:t
 #+title: The Battle of the Suburbs in Canberra
@@ -207,13 +207,9 @@ for row in table_can.tbody.find_all('tr'):
 
 #+results:
 
-Then I separated each suburb to individual rows and create a new Pandas
-DataFrame =df_can=. This will be my master DataFrame for the required
-datasets and will be updated as new information is added. Hereafter we
-store the =df_can= to individual .csv files at different stages. This
-will allow us to read the datasets from stored files instead of
-webscraping again for future runs should we wish (for speed or data
-consistency concerns).
+After retrieved this table information, I separated each suburb to individual rows and create a Pandas DataFrame =df_can=.
+This master DataFrame hosting the main datasets for the suburbs was updated in the following steps to include postcode, geo location, median house price, distance to towncenters and number of venues.
+Hereafter I stored the =df_can= to individual .csv files at different stages which allowed  me to read the datasets from stored files instead of webscraping again for future runs should we wish (for speed or data consistency concerns).
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # convert suburb list elements to separate rows
@@ -231,17 +227,16 @@ df_can.to_csv('data/canberra_suburbs.csv', index=False)
 #+END_SRC
 
 #+results:
-
 ** Add postcode
    :PROPERTIES:
    :CUSTOM_ID: add-postcode
    :END:
 
-Although the post code for each suburb is not directly used in this
-analysis, it is necessary to collect them as I will use it later when
-scrap house price information. A FreeDatabase of Australian Postcodes
-can be found on [[https://www.matthewproctor.com/australian_postcodes][Matthew Proctor's website]]. Let's download the dataset and read them into a Pandas
-DataFrame:
+Although the postcode for each suburb was not directly used in this analysis, it was necessary to collect them as I needed them later when scraping the house price information from Domain website.
+A FreeDatabase of Australian Postcodes have been found on [[https://www.matthewproctor.com/australian_postcodes][Matthew Proctor's website]].
+After downloading the dataset, I filtered the postcode for Canberra suburbs and merged them into previous =df_can= DataFrame.
+Apart from the postcode fields, this open dataset also includes other information such as geo location and zone data which might be useful for future study.
+I decided to use =geopy= library to get the latitude and longitude by myself instead of using the data from this dataset as an exercise in next step.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 #df_can = pd.read_csv('data/canberra_suburbs.csv')
@@ -251,9 +246,6 @@ df_post_act = df_post[(df_post['state'] == 'ACT')][['postcode', 'locality']]
 #+END_SRC
 
 #+results:
-
-Next filter the postcode for Canberra suburbs and merge them into our
-previous =df_can= DataFrame:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_can = pd.merge(df_can, df_post_act, left_on=df_can['Suburb'].str.upper(), right_on=df_post_act['locality'].str.upper(), how='left').fillna(0)
@@ -272,8 +264,7 @@ df_can.to_csv('data/canberra_suburbs_postcode.csv', index=False)
    :CUSTOM_ID: add-geo-location
    :END:
 
-To get the latitude and longitude information for each suburb, let's use
-the =geopy= library demonstrated in previous labs:
+To get the latitude and longitude information for each suburb, the =geopy= library demonstrated in previous labs is used.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 from geopy.geocoders import Nominatim
@@ -299,21 +290,28 @@ df_can.to_csv('data/canberra_suburbs_geo.csv', index=False)
 # df_can.head()
 #+END_SRC
 
-*** Add towncenters
-    :PROPERTIES:
-    :CUSTOM_ID: add-towncenters
-    :END:
+A separate DataFrame =df_town= was created to include the latitude and longitude information for towncenters.
+After merging the geo location into main DataFrame =df_can=, it looks like below:
 
-Let's create a seperate DataFrame =df_town= for the towncenters and
-their latitude and longitude information. First check if I have all the
-8 towncenters included in the master DataFrame:
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :pandoc t
+df_can = pd.read_csv('data/canberra_suburbs_geo.csv')
+df_can.head()
+#+END_SRC
+
+#+results:
+:RESULTS:
+|   | Towncenter     | Suburb  | Postcode | Latitude   | Longitude  |
+|---+----------------+---------+----------+------------+------------|
+| 0 | North Canberra | Acton   | 2601     | -35.285232 | 149.112968 |
+| 1 | North Canberra | Ainslie | 2602     | -35.262195 | 149.147880 |
+| 2 | Gungahlin      | Amaroo  | 2914     | -35.169587 | 149.128021 |
+| 3 | Belconnen      | Aranda  | 2614     | -35.258055 | 149.080426 |
+| 4 | Tuggeranong    | Banks   | 2906     | -35.471889 | 149.099657 |
+:END:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_can['Towncenter'].unique()
 #+END_SRC
-
-Looks all right. Now I use geocoder to populate the latitude and
-longitude for all the towncenters and store that to a .csv file too.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_town = pd.DataFrame(columns=['Towncenter', 'Latitude', 'Longitude'])
@@ -327,13 +325,13 @@ df_town.to_csv('data/canberra_towncenters.csv', index=False)
 #df_town.head()
 #+END_SRC
 
-*** Visualisation
-    :PROPERTIES:
-    :CUSTOM_ID: visualisation
-    :END:
+Based on the geo information of all the suburbs and towncenters, I created the following Folium map to visualize the towncenters and suburbs:
 
-Based on the geo information of all the suburbs and towncenters, I wanna
-visualize them on f Folium map to examine if the data make sense.
+#+name: fig:map-towncenters
+#+caption: Folium map for visualizing towncenters and suburbs
+#+attr_latex: :float wrap :width 0.75\textwidth :center
+
+[[file:figures/map_towncenters.jpg][file:figures/map_towncenters.jpg]]
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 address = 'Canberra, ACT'
@@ -385,27 +383,19 @@ map_canberra
 
 #+results:
 
-The visulization looks all right so let's proceed to the next step to
-calulate the distance of each suburb to its nearest towncenter.
+# The visulization looks all right so let's proceed to the next step to
+# calulate the distance of each suburb to its nearest towncenter.
 
 ** Driving distance to nearest Towncenter
    :PROPERTIES:
    :CUSTOM_ID: driving-distance-to-nearest-towncenter
    :END:
 
-My first attempt to calculate the driving distance between suburb to
-towncenter is to use
-[[https://developers.google.com/maps/documentation/distance-matrix/overview][Google
-Distance Matrix API]] following
-[[https://www.geeksforgeeks.org/python-calculate-distance-duration-two-places-using-google-distance-matrix-api/][this
-blog post]]. Unfortunatly at the time of this study, there is no longer
-free options to use the Google Distance Matrix API. As an alternative, I
-will explore the
-[[https://towardsdatascience.com/calculating-distance-between-two-geolocations-in-python-26ad3afe287b][Haversine
-Distance]] as an alternative to the driving distance.
+My first attempt to calculate the driving distance between suburb to towncenter was to use [[https://developers.google.com/maps/documentation/distance-matrix/overview][Google Distance Matrix API]] following [[https://www.geeksforgeeks.org/python-calculate-distance-duration-two-places-using-google-distance-matrix-api/][this blog post]].
+Unfortunately at the time of this study, there is no longer free options to use the Google Distance Matrix API.
+As an alternative, I explored the [[https://towardsdatascience.com/calculating-distance-between-two-geolocations-in-python-26ad3afe287b][Haversine Distance]] as an alternative to the driving distance.
 
-First let's create a DataFrame holding the matrix of suburb (row) and
-towncenter (column):
+# First let's create a DataFrame holding the matrix of suburb (row) and towncenter (column):
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   import haversine as hs
@@ -420,10 +410,9 @@ towncenter (column):
   df_to.head()
 #+END_SRC
 
-Now iterate each suburb and towncenter and calculate the Haversine
-Distance between them. An extra column =Nearest= hold the distance of a
-suburb to its closest towncenter which may not necessarily be the
-demographic one that it belongs to.
+By iterating each suburb and towncenter and calling the =haversine= function, a distance matrix representing the Haversine Distance between suburbs and towncenters were created and stored into a DataFrame.
+An extra column =Nearest= hold the distance of a suburb to its closest towncenter was appended, although this nearest towncenter may not necessarily be the demographic one that a suburb belongs to.
+This nearest distance to towncenter information was merged into the master DataFraem =df_can=.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   # Set towncenter and suburb as index for convenience
@@ -447,8 +436,6 @@ demographic one that it belongs to.
   df_to.head()
 #+END_SRC
 
-Now I can add the nearest distance to towncenter information to our
-master DataFraem =df_can=:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_can = pd.merge(df_can, df_to[['Suburb', 'Nearest']], left_on='Suburb', right_on='Suburb', how='inner').fillna(0)
@@ -461,24 +448,15 @@ master DataFraem =df_can=:
    :CUSTOM_ID: add-median-price
    :END:
 
-Again, the dataset for the real estate price for each suburb is not
-readily (or at least freely) available online. Domain provides a
-[[https://www.domain.com.au/suburb-profile/][suburb profile page]] where
-you can enter the name of a suburb and serch its profile which happens
-to include a Market trends table. For example, following figure shows
-the information
-[[https://www.domain.com.au/suburb-profile/banks-act-2906][found in
-suburb /Banks/]]:
+Again, the dataset for the real estate price for each suburb is not readily (or at least freely) available online.
+Domain provides a [[https://www.domain.com.au/suburb-profile/][suburb profile page]] where you can enter the name of a suburb and serch its profile which happens to include a Market trends table.
+For example, following figure shows the property sales information under a section named /Market trends/ [[https://www.domain.com.au/suburb-profile/banks-act-2906][found in suburb /Banks/]]:
 
 [[file:figures/domain_price.png]]
 
-The price of properties under interest are 3 or 4 bedrooms house for the young
-family who want to settle down in Canberra. A little bit of exploration
-on the URLs for each suburb reveals that the suffix part has a pattern
-of =suburb-name/act/postcoe= with special character in the suburb name
-like single quote or space being replaced by a =-= character. So we
-define the following function to scrap the price data for 3/4-bedroom
-house:
+The price of properties under interest are 3 or 4 bedrooms house for the young family who want to settle down in Canberra.
+A little bit of exploration on the URLs for each suburb revealed that the suffix part has a pattern of =suburb-name/act/postcoe= with special character in the suburb name like single quote or space being replaced by a =-= character.
+Using the webscraping techniques (=requests= and =BeautifulSoup=), I was able to extract the relevant field data from this table.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   def get_median_price(suburb, postcode):
@@ -512,12 +490,9 @@ house:
       return df
 #+END_SRC
 
-It is worth to note that not all suburbs have this Market trends table
-as it is based on the sales data in the past 12 months. Additionaly even
-the table exists, it is not always to have the price for 3/4 bedroom
-house for the very same reason. I will need to take care of these
-exceptions during the webscraping proceess and later on I will handle
-the missing information for some suburbs.
+It is worth to note that not all suburbs have this Market trends table as it is based on the sales data in the past 12 months.
+Additionally even the table exists, it is not always to have the price for 3/4 bedroom house for the very same reason.
+I took care of these exceptions during the webscraping process and below I will explain how to handle the missing information for some suburbs.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   #df_can = pd.read_csv('data/canberra_suburbs_distance.csv')
@@ -558,9 +533,8 @@ the missing information for some suburbs.
     :CUSTOM_ID: fixing-missing-prices
     :END:
 
-Let's first check the number of suburbs that I didn't find a price for
-3/4-bedroom houses as well as the number of thouse only has either 3 or
-4-bedrooms:
+# Let's first check the number of suburbs that I didn't find a price for 3/4-bedroom houses as well as the number of thouse only has either 3 or
+# 4-bedrooms:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 no_bed3_and_bed4 = df_price['bed3'].isnull() & df_price['bed4'].isnull()
@@ -576,19 +550,13 @@ print('No price for 4 bedrooms: {}, missing {:.2f}%'.format(no_bed4.sum(),
                                                            no_bed4.sum()*100/total))
 #+END_SRC
 
-The missing rates for only 3 or 4 bedrooms are below 10% whereas missing
-rate for both 3 and 4 bedrooms are even higher 28%. Instead of dumping
-the rows with missing values or using the column mean to fill in the
-missing values directly which is likely to insert many same price
-values, I use the following strategy to fix the missing prices:
+After a close examination of the price data for 3 or 4 bedrooms house, I found the missing rates for only 3 or 4 bedrooms are below 10% whereas missing rate for both 3 and 4 bedrooms are even higher 28%. Instead of dumping the rows with missing values or using the column mean to fill in the missing values directly which is likely to insert many same price values, I used the following strategy to fix the missing prices:
 
-1. Assume the ratio for 4-bedroom and 3-bedroom price is similar in all
-   the suburbs, calculate this ratio based on the average of suburbs
-   which contain both values.
-2. For the suburbs mising only one price, let's use the other price and
-   the above average ratio to estimate the other missing price.
-3. Finally for suburbs missing both prices, use the column mean
-   respectively.
+1. Assume the ratio for 4-bedroom and 3-bedroom price is similar in all the suburbs, calculate this ratio based on the average of suburbs which contain both values.
+2. For the suburbs mising only one price, let's use the other price and the above average ratio to estimate the other missing price.
+3. Finally for suburbs missing both prices, use the column mean respectively.
+
+The average price for 3 and 4 bedrooms house was calculated and merged into the master DataFrame =df_can=.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 #1. calculate mean ration between 3 and 4 bedroom house price
@@ -603,8 +571,6 @@ df_price['bed4'].fillna(value=df_price['bed4'].mean(), inplace=True)
 df_price.head()
 #+END_SRC
 
-Now calulate an average price for 3 and 4 bedrooms house and merge that
-information into the master DataFrame =df_can=:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_price['Median Price'] = df_price[['bed3', 'bed4']].mean(axis=1)
@@ -619,10 +585,7 @@ information into the master DataFrame =df_can=:
    :CUSTOM_ID: use-foursquare-to-check-venues
    :END:
 
-Similar to previous labs covered in the course, I will use the
-Foursquare API to explore the venues around each suburb and catagarize
-them. First define some credentials and a function to reteive venue
-information for a list of suburbs:
+# First define some credentials and a function to reteive venue information for a list of suburbs:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 CLIENT_ID = 'NA1JN3DQJULNX1LDJ00TD14RADCEPYZDJ1KSZEHK1LMVATL1' # your Foursquare ID
@@ -690,19 +653,10 @@ canberra_venues.to_csv('data/canberra_venues.csv', index=False)
 canberra_venues.head()
 #+END_SRC
 
-Now I count the number of venues in each suburb and merge that into
-master DataFrame =df_can=. This colcludes the end of main data
-collection:
-
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_count = canberra_venues.groupby(['Suburb'])['Suburb'].count().reset_index(name='venue count')
 df_can = df_can.merge(df_count, left_on='Suburb', right_on='Suburb', how='left').fillna(0)
 df_can.to_csv('data/canberra_suburbs_venues.csv', index=False)
-df_can.head()
-#+END_SRC
-
-The master DataFrame =df_can= now looks like below:
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :pandoc t
 df_can.head()
 #+END_SRC
 
@@ -717,14 +671,28 @@ df_can.head()
 | 4 | Banks   | Tuggeranong    | 2906     | -35.471889 | 149.099657 | 5.702031 | 655.000000   | 9.0         |
 :END:
 
-*** Analyze venues in each suburb
-    :PROPERTIES:
-    :CUSTOM_ID: analyze-venues-in-each-suburb
-    :END:
+Similar to previous labs covered in the course, I used the Foursquare API to explore the venues around each suburb and categorize them.
+As mentioned in the beginning, Canberra has a quite extended geography and a rather low population density, the radius to count the venues for each suburb was set to 2km.
+The returned venues were grouped by each suburb and the total number of venues for each suburb was added into the main DataFrame.
+This colcludes the end of main data collection and the master DataFrame =df_can= now looks like below:
 
-In this part, I find the top 5 most common venues in each suburb,
-following the examples from previous labs, and store them as an
-additional DataFrame =df_can= in addition to the master DataFrame:
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :pandoc t
+df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
+df_can.head()
+#+END_SRC
+
+#+results:
+:RESULTS:
+|   | Suburb  | Towncenter     | Postcode | Latitude   | Longitude  | Nearest  | Median Price | venue count |
+|---+---------+----------------+----------+------------+------------+----------+--------------+-------------|
+| 0 | Acton   | North Canberra | 2601     | -35.285232 | 149.112968 | 2.921057 | 3044.733334  | 100.0       |
+| 1 | Ainslie | North Canberra | 2602     | -35.262195 | 149.147880 | 1.413531 | 14295.000000 | 61.0        |
+| 2 | Amaroo  | Gungahlin      | 2914     | -35.169587 | 149.128021 | 1.106799 | 726.000000   | 38.0        |
+| 3 | Aranda  | Belconnen      | 2614     | -35.258055 | 149.080426 | 4.783948 | 3044.733334  | 29.0        |
+| 4 | Banks   | Tuggeranong    | 2906     | -35.471889 | 149.099657 | 5.702031 | 655.000000   | 9.0         |
+:END:
+
+*** Venue category analysis
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 canberra_venues = pd.read_csv('data/canberra_venues.csv')
@@ -746,10 +714,6 @@ canberra_onehot.head()
 canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
 canberra_grouped.shape
 #+END_SRC
-
-Now let's create the new dataframe and display the top 10 venues for
-each suburb by writing a function to sort the venues in descending
-order:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 def return_most_common_venues(row, num_top_venues):
@@ -783,30 +747,40 @@ df_venues.to_csv('data/canberra_venues_sorted.csv', index=False)
 df_venues.head()
 #+END_SRC
 
+After grouping the venues by each suburb, I sorted the type of venues for each suburb and found the top 10 most common venues in each suburb.
+This dataset was added into an additional DataFrame =df_venues= and was used later on to cluster and segment the suburbs from the perspective of venues.
+An example of the top 3 venues for each suburb is shown below and unsurprisingly Café and Hotels are found to be the most common ones in the suburbs close to CBD like Acton or Ainslie:
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :pandoc t
+df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
+df_venues_sample = df_venues.drop(df_venues.columns[4:], axis=1)
+df_venues_sample.head()
+#+END_SRC
+
+#+results:
+:RESULTS:
+|   | Suburb  | 1st Most Common Venue | 2nd Most Common Venue | 3rd Most Common Venue |
+|---+---------+-----------------------+-----------------------+-----------------------|
+| 0 | Acton   | Café                  | Hotel                 | Coffee Shop           |
+| 1 | Ainslie | Café                  | Hotel                 | Chinese Restaurant    |
+| 2 | Amaroo  | Café                  | Fast Food Restaurant  | Supermarket           |
+| 3 | Aranda  | Gym                   | Café                  | Supermarket           |
+| 4 | Banks   | Supermarket           | Sandwich Place        | Fried Chicken Joint   |
+:END:
 
 * Methodology
   :PROPERTIES:
   :CUSTOM_ID: methodology-
   :END:
-In this study, I will try to categrize suburbs into different groups
-with similar profiles based on different metrics. In the previous data
-collection stage, I have assembed two Pandas DataFrames: one consists
-of the meian price for 3 to 4 bedroom houses, distance to closest
-towncenter and total number of venues in each suburb within 2km. Whereas
-the second DataFrame consists of the top 10 most common venues in each
-suburb.
+In this study, I planned to categrize suburbs into different groups with similar profiles based on different metrics.
+In the previous data collection stage, I have assembed two Pandas DataFrames: one consists of the median price for 3 to 4 bedroom houses, distance to closest towncenter and total number of venues in each suburb within 2km.
+Whereas in the second DataFrame,the top 10 most common venues in each suburb are included.
 
-In the next analysis step, I will first *check some statistics* of our
-dataset, for example, histogram of house prices and cloest distance to
-towncenter. Then I perform unsupervised *k-means clustering* on these
-two datasets to cluster and segment suburbs. After clustering, I will
-visiualize the clustered suburbs using Folium. *Choropleth* maps are
-expected to be used to assist visulisation of venue density or price
-range etc.
+In the next analysis step, I will first *check some statistics* of our dataset, for example, histogram of house prices and cloest distance to towncenter.
+Then I perform unsupervised *k-means clustering* on these two datasets to cluster and segment suburbs.
+After clustering, I will visiualize the clustered suburbs using Folium.
 
-By the end of the study, I should have well segmented suburbs and be
-able to give recommendations to the young family seeking for properties
-according to different criteria.
+By the end of the study, I should have well segmented suburbs and be able to give recommendations to the young family seeking for properties according to different criteria.
 
 * Analysis
   :PROPERTIES:
@@ -816,7 +790,14 @@ according to different criteria.
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # uncomment if use stored data
 df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
+df_town = pd.read_csv('data/canberra_towncenters.csv')
 df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
+
+address = 'Canberra, ACT'
+geolocator = Nominatim(user_agent="act_explorer")
+location = geolocator.geocode(address)
+latitude = location.latitude
+longitude = location.longitude
 #+END_SRC
 
 #+results:
@@ -825,12 +806,6 @@ df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
    :PROPERTIES:
    :CUSTOM_ID: get-some-statitics
    :END:
-
-Let's first perform some basic explanatory data analysis on the main
-DataFrame. I will explore statitics of median house price, number of
-venues and distance to nearest towncenters for each suburb grouped by
-their governing towncenters. Pandas boxplot is used instead of the
-seaborn library but with adjusted style.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # We will use the boxplot from Pandas as it provides groupby by default,
@@ -855,6 +830,9 @@ def adjust_boxplot_style(bp):
 #+END_SRC
 
 #+results:
+
+Before proceeding to the clustering and segmentation on the suburbs, I performed some basic explanatory data analysis on the main DataFrame.
+I explored statitics of median house price, number of venues and distance to nearest towncenters for each suburb grouped by their governing towncenters.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :file figures/suburb_statistics_towncenters.jpg
 boxprops = dict(linestyle='-', linewidth=4, color='k')
@@ -911,31 +889,38 @@ ax3.tick_params(axis="x", rotation=45)
 #+results:
 [[file:figures/suburb_statistics_towncenters.jpg]]
 
-From the above 3 plots, I can see that there are more venues in North
-and South Canberras and the house price there are also much higher than
-suburbs in other towncenters. The distance for suburbs to closed
-towncenter however does not present a significant difference which
-indicate the well planned geo structure of Canberra suburbs. Next we
-will use k-means to cluster all the suburbs.
+From the above 3 plots, it is evident that there are more venues in North and South Canberras and the house price there are also much higher than suburbs in other towncenters.
+The distance for suburbs to closed towncenter however does not present a significant difference which indicate the well planned geo structure of Canberra suburbs.
 
-** k-means clustering on master dataset
+** k-means clustering on master and venue category dataset 
    :PROPERTIES:
    :CUSTOM_ID: k-means-clustering-on-master-dataset
    :END:
 
-In this section, I will use k-means to perform unsupervised clustering
-on the master dataset =df_can= and the venue category dataset
-=df_venues=. To find the optimal number of clusters, the elbow method
-will be used.
+K-means clustering is one of the most commonly used clustering techniques to perform unsupervised learning on datasets.
+It aims to partition the dataset into /k/ clusters in which each sample belongs to the cluster with the nearest mean.
+The k-means clustering minimises the data sample variance within clusters and therefor is useful for this study to group suburbs with similar profiles like median house price or distance to towncenters.
+
+To perform k-means clustering on the master dataset =df_can=, several irrelevant columns such as /Towncenter/, /Postcode/, /Latitude/, /Longitude/ are dropped from the DataFrame.
+Then the relevant data are normalized first before the clustering.
+For k-means on the second venue category dataset, the number of different venue categories in each suburb are averaged first as a one-hot pre-processing.
+
+To find the optimal number of clusters, the elbow method will be used where the optimal /k/ value is decided when the quality of the clustering see a sharp drop.
+The tow figures below shows the distortion of the clusters on the two datasets and the optimal number of clusters are found to be 3 and 4 for the main and venue category datasets respectively. 
+
+#+BEGIN_center
+#+ATTR_LaTeX: :width 0.45\textwidth :center
+[[file:figures/kmeans-optimal-master.pdf]]
+#+ATTR_LaTeX: :width 0.45\textwidth :center
+[[file:figures/kmeans-optimal-venue.pdf]]
+#+END_center
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 #df_can = pd.read_csv('data/canberra_suburbs_venues.csv')
-drop_columns = ['Towncenter', 'Postcode', 'Latitude', 'Longitude']
+drop_columns = [j'Towncenter', 'Postcode', 'Latitude', 'Longitude']
 df_cluster = df_can.drop(drop_columns, axis=1).set_index('Suburb')
 #df_cluster.head()
 #+END_SRC
-
-#+results:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # normalize datasets
@@ -946,13 +931,7 @@ clus_data = StandardScaler().fit_transform(X)
 clus_data.shape
 #+END_SRC
 
-#+results:
-| 112 | 3 |
-
-To find optimal cluster number, I iterate from 1 to 10 and find the
-turning point:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :results file
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none :results file
 distortions = []
 K = range(1,10)
 for k in K:
@@ -967,15 +946,12 @@ fig, ax = plt.subplots(figsize=(6, 4))
 ax.plot(K, distortions, 'bx-')
 ax.set_xlabel('k')
 ax.set_ylabel('Distortion')
-ax.set_title('The Elbow Method showing the optimal k')
+ax.set_title('k-means on venue category dataset.')
 plt.savefig('figures/kmeans-optimal-master.pdf')
 #+END_SRC
 
 #+results:
-[[file:./.ob-jupyter/c0eee727770411c6226540bf7e22b6aed5a8986e.png]]
-
-So 3 would be the optimal number of clusters and let's rerun the
-clustering:
+[[file:./.ob-jupyter/251b834fe4c1c24b5289c8f3a364f302b4b51685.png]]
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # set number of clusters
@@ -985,14 +961,6 @@ kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(clus_data)
 kmeans.labels_
 #+END_SRC
 
-#+results:
-: array([2, 2, 1, 0, 0, 2, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 0, 2, 0, 2, 0, 0,
-:        1, 0, 0, 2, 1, 2, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 1, 0,
-:        0, 0, 1, 1, 2, 1, 0, 0, 1, 1, 1, 0, 2, 0, 1, 1, 0, 0, 0, 2, 1, 0,
-:        1, 2, 0, 0, 0, 2, 1, 0, 1, 0, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 2,
-:        2, 1, 2, 2, 1, 1, 2, 1, 0, 1, 0, 0, 0, 0, 1, 2, 1, 1, 0, 2, 1, 0,
-:        1, 2], dtype=int32)
-
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # insert the cluster label to DataFrame
 df_cluster = df_can.copy()
@@ -1001,1516 +969,188 @@ df_cluster.reset_index()
 # df_cluster.head()
 #+END_SRC
 
-#+results:
-#+begin_export html
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>index</th>
-      <th>Cluster</th>
-      <th>Suburb</th>
-      <th>Towncenter</th>
-      <th>Postcode</th>
-      <th>Latitude</th>
-      <th>Longitude</th>
-      <th>Nearest</th>
-      <th>Median Price</th>
-      <th>venue count</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>0</td>
-      <td>2</td>
-      <td>Acton</td>
-      <td>North Canberra</td>
-      <td>2601</td>
-      <td>-35.285232</td>
-      <td>149.112968</td>
-      <td>2.921057</td>
-      <td>3044.733334</td>
-      <td>100.0</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>1</td>
-      <td>2</td>
-      <td>Ainslie</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.262195</td>
-      <td>149.147880</td>
-      <td>1.413531</td>
-      <td>14295.000000</td>
-      <td>61.0</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>2</td>
-      <td>1</td>
-      <td>Amaroo</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.169587</td>
-      <td>149.128021</td>
-      <td>1.106799</td>
-      <td>726.000000</td>
-      <td>38.0</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>3</td>
-      <td>0</td>
-      <td>Aranda</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.258055</td>
-      <td>149.080426</td>
-      <td>4.783948</td>
-      <td>3044.733334</td>
-      <td>29.0</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>4</td>
-      <td>0</td>
-      <td>Banks</td>
-      <td>Tuggeranong</td>
-      <td>2906</td>
-      <td>-35.471889</td>
-      <td>149.099657</td>
-      <td>5.702031</td>
-      <td>655.000000</td>
-      <td>9.0</td>
-    </tr>
-    <tr>
-      <th>5</th>
-      <td>5</td>
-      <td>2</td>
-      <td>Barton</td>
-      <td>South Canberra</td>
-      <td>2600</td>
-      <td>-35.307263</td>
-      <td>149.140499</td>
-      <td>1.294751</td>
-      <td>3044.733334</td>
-      <td>92.0</td>
-    </tr>
-    <tr>
-      <th>6</th>
-      <td>6</td>
-      <td>1</td>
-      <td>Belconnen</td>
-      <td>Belconnen</td>
-      <td>2616</td>
-      <td>-35.227434</td>
-      <td>149.043145</td>
-      <td>0.000000</td>
-      <td>3044.733334</td>
-      <td>12.0</td>
-    </tr>
-    <tr>
-      <th>7</th>
-      <td>7</td>
-      <td>0</td>
-      <td>Bonner</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.155962</td>
-      <td>149.142956</td>
-      <td>3.093818</td>
-      <td>683.500000</td>
-      <td>7.0</td>
-    </tr>
-    <tr>
-      <th>8</th>
-      <td>8</td>
-      <td>1</td>
-      <td>Bonython</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.433308</td>
-      <td>149.078276</td>
-      <td>1.859237</td>
-      <td>687.500000</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>9</th>
-      <td>9</td>
-      <td>2</td>
-      <td>Braddon</td>
-      <td>North Canberra</td>
-      <td>2612</td>
-      <td>-35.270815</td>
-      <td>149.135735</td>
-      <td>0.771686</td>
-      <td>3044.733334</td>
-      <td>93.0</td>
-    </tr>
-    <tr>
-      <th>10</th>
-      <td>10</td>
-      <td>0</td>
-      <td>Bruce</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.245352</td>
-      <td>149.091633</td>
-      <td>4.275146</td>
-      <td>3044.733334</td>
-      <td>28.0</td>
-    </tr>
-    <tr>
-      <th>11</th>
-      <td>11</td>
-      <td>1</td>
-      <td>Calwell</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.440386</td>
-      <td>149.107107</td>
-      <td>2.549109</td>
-      <td>677.500000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>12</th>
-      <td>12</td>
-      <td>2</td>
-      <td>Campbell</td>
-      <td>North Canberra</td>
-      <td>2612</td>
-      <td>-35.291340</td>
-      <td>149.158176</td>
-      <td>3.683473</td>
-      <td>14565.000000</td>
-      <td>34.0</td>
-    </tr>
-    <tr>
-      <th>13</th>
-      <td>13</td>
-      <td>2</td>
-      <td>Capital Hill</td>
-      <td>South Canberra</td>
-      <td>2600</td>
-      <td>-35.308180</td>
-      <td>149.124421</td>
-      <td>1.086058</td>
-      <td>3044.733334</td>
-      <td>100.0</td>
-    </tr>
-    <tr>
-      <th>14</th>
-      <td>14</td>
-      <td>0</td>
-      <td>Casey</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.167002</td>
-      <td>149.094715</td>
-      <td>2.943163</td>
-      <td>679.000000</td>
-      <td>6.0</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>15</td>
-      <td>1</td>
-      <td>Chapman</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.356209</td>
-      <td>149.037454</td>
-      <td>1.705724</td>
-      <td>6954.724984</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>16</th>
-      <td>16</td>
-      <td>0</td>
-      <td>Charnwood</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.200178</td>
-      <td>149.034136</td>
-      <td>3.139327</td>
-      <td>1119.328062</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>17</th>
-      <td>17</td>
-      <td>2</td>
-      <td>Chifley</td>
-      <td>Woden Valley</td>
-      <td>2606</td>
-      <td>-35.353295</td>
-      <td>149.076890</td>
-      <td>1.602380</td>
-      <td>6688.004946</td>
-      <td>36.0</td>
-    </tr>
-    <tr>
-      <th>18</th>
-      <td>18</td>
-      <td>0</td>
-      <td>Chisholm</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.421966</td>
-      <td>149.124845</td>
-      <td>2.966122</td>
-      <td>685.500000</td>
-      <td>17.0</td>
-    </tr>
-    <tr>
-      <th>19</th>
-      <td>19</td>
-      <td>2</td>
-      <td>City</td>
-      <td>North Canberra</td>
-      <td>2601</td>
-      <td>-35.281268</td>
-      <td>149.129187</td>
-      <td>1.902094</td>
-      <td>3044.733334</td>
-      <td>100.0</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>20</td>
-      <td>0</td>
-      <td>Conder</td>
-      <td>Tuggeranong</td>
-      <td>2906</td>
-      <td>-35.459273</td>
-      <td>149.104328</td>
-      <td>4.399307</td>
-      <td>648.000000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>21</th>
-      <td>21</td>
-      <td>0</td>
-      <td>Cook</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.260103</td>
-      <td>149.066366</td>
-      <td>4.200379</td>
-      <td>3044.733334</td>
-      <td>31.0</td>
-    </tr>
-    <tr>
-      <th>22</th>
-      <td>22</td>
-      <td>1</td>
-      <td>Coombs</td>
-      <td>Molonglo Valley</td>
-      <td>2611</td>
-      <td>-35.316734</td>
-      <td>149.042525</td>
-      <td>1.623548</td>
-      <td>788.500000</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>23</th>
-      <td>23</td>
-      <td>0</td>
-      <td>Crace</td>
-      <td>Gungahlin</td>
-      <td>2911</td>
-      <td>-35.202880</td>
-      <td>149.107474</td>
-      <td>3.047059</td>
-      <td>776.000000</td>
-      <td>7.0</td>
-    </tr>
-    <tr>
-      <th>24</th>
-      <td>24</td>
-      <td>0</td>
-      <td>Curtin</td>
-      <td>Woden Valley</td>
-      <td>2605</td>
-      <td>-35.324632</td>
-      <td>149.077378</td>
-      <td>3.186627</td>
-      <td>6244.000000</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>25</td>
-      <td>2</td>
-      <td>Deakin</td>
-      <td>South Canberra</td>
-      <td>2600</td>
-      <td>-35.319275</td>
-      <td>149.103076</td>
-      <td>2.584546</td>
-      <td>15165.000000</td>
-      <td>20.0</td>
-    </tr>
-    <tr>
-      <th>26</th>
-      <td>26</td>
-      <td>1</td>
-      <td>Denman Prospect</td>
-      <td>Molonglo Valley</td>
-      <td>2611</td>
-      <td>-35.296415</td>
-      <td>149.024810</td>
-      <td>1.154765</td>
-      <td>658.798493</td>
-      <td>3.0</td>
-    </tr>
-    <tr>
-      <th>27</th>
-      <td>27</td>
-      <td>2</td>
-      <td>Dickson</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.252786</td>
-      <td>149.141722</td>
-      <td>1.535347</td>
-      <td>1898.860106</td>
-      <td>58.0</td>
-    </tr>
-    <tr>
-      <th>28</th>
-      <td>28</td>
-      <td>1</td>
-      <td>Downer</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.243831</td>
-      <td>149.143546</td>
-      <td>2.494032</td>
-      <td>952.500000</td>
-      <td>58.0</td>
-    </tr>
-    <tr>
-      <th>29</th>
-      <td>29</td>
-      <td>1</td>
-      <td>Duffy</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.334552</td>
-      <td>149.031900</td>
-      <td>1.745455</td>
-      <td>789.000000</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>30</td>
-      <td>0</td>
-      <td>Dunlop</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.193997</td>
-      <td>149.019801</td>
-      <td>4.280316</td>
-      <td>659.000000</td>
-      <td>9.0</td>
-    </tr>
-    <tr>
-      <th>31</th>
-      <td>31</td>
-      <td>0</td>
-      <td>Evatt</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.211832</td>
-      <td>149.068948</td>
-      <td>2.916102</td>
-      <td>739.000000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>32</th>
-      <td>32</td>
-      <td>0</td>
-      <td>Fadden</td>
-      <td>Tuggeranong</td>
-      <td>2904</td>
-      <td>-35.401862</td>
-      <td>149.117610</td>
-      <td>3.138207</td>
-      <td>600.120085</td>
-      <td>28.0</td>
-    </tr>
-    <tr>
-      <th>33</th>
-      <td>33</td>
-      <td>0</td>
-      <td>Farrer</td>
-      <td>Woden Valley</td>
-      <td>2607</td>
-      <td>-35.376690</td>
-      <td>149.105038</td>
-      <td>3.145545</td>
-      <td>6222.500000</td>
-      <td>9.0</td>
-    </tr>
-    <tr>
-      <th>34</th>
-      <td>34</td>
-      <td>1</td>
-      <td>Fisher</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.361263</td>
-      <td>149.056876</td>
-      <td>2.150464</td>
-      <td>763.000000</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>35</th>
-      <td>35</td>
-      <td>1</td>
-      <td>Florey</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.225790</td>
-      <td>149.050175</td>
-      <td>0.664135</td>
-      <td>732.000000</td>
-      <td>34.0</td>
-    </tr>
-    <tr>
-      <th>36</th>
-      <td>36</td>
-      <td>1</td>
-      <td>Flynn</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.205837</td>
-      <td>149.044063</td>
-      <td>2.402917</td>
-      <td>727.500000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>37</th>
-      <td>37</td>
-      <td>1</td>
-      <td>Forde</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.168224</td>
-      <td>149.146069</td>
-      <td>2.356815</td>
-      <td>782.500000</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>38</th>
-      <td>38</td>
-      <td>2</td>
-      <td>Forrest</td>
-      <td>South Canberra</td>
-      <td>2603</td>
-      <td>-35.317209</td>
-      <td>149.124856</td>
-      <td>0.596617</td>
-      <td>3044.733334</td>
-      <td>73.0</td>
-    </tr>
-    <tr>
-      <th>39</th>
-      <td>39</td>
-      <td>0</td>
-      <td>Franklin</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.199454</td>
-      <td>149.143301</td>
-      <td>2.902183</td>
-      <td>730.000000</td>
-      <td>24.0</td>
-    </tr>
-    <tr>
-      <th>40</th>
-      <td>40</td>
-      <td>0</td>
-      <td>Fraser</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.191712</td>
-      <td>149.045318</td>
-      <td>3.976945</td>
-      <td>3044.733334</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>41</th>
-      <td>41</td>
-      <td>0</td>
-      <td>Fyshwick</td>
-      <td>South Canberra</td>
-      <td>2609</td>
-      <td>-35.321658</td>
-      <td>149.170877</td>
-      <td>3.641686</td>
-      <td>3044.733334</td>
-      <td>45.0</td>
-    </tr>
-    <tr>
-      <th>42</th>
-      <td>42</td>
-      <td>1</td>
-      <td>Garran</td>
-      <td>Woden Valley</td>
-      <td>2605</td>
-      <td>-35.341397</td>
-      <td>149.108539</td>
-      <td>1.616345</td>
-      <td>8988.465272</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>43</th>
-      <td>43</td>
-      <td>0</td>
-      <td>Gilmore</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.415011</td>
-      <td>149.138278</td>
-      <td>4.233777</td>
-      <td>674.500000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>44</th>
-      <td>44</td>
-      <td>0</td>
-      <td>Giralang</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.210939</td>
-      <td>149.095992</td>
-      <td>4.361993</td>
-      <td>776.000000</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>45</th>
-      <td>45</td>
-      <td>0</td>
-      <td>Gordon</td>
-      <td>Tuggeranong</td>
-      <td>2906</td>
-      <td>-35.456726</td>
-      <td>149.085066</td>
-      <td>4.026384</td>
-      <td>665.000000</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>46</th>
-      <td>46</td>
-      <td>1</td>
-      <td>Gowrie</td>
-      <td>Tuggeranong</td>
-      <td>2904</td>
-      <td>-35.411817</td>
-      <td>149.109106</td>
-      <td>1.844741</td>
-      <td>3044.733334</td>
-      <td>22.0</td>
-    </tr>
-    <tr>
-      <th>47</th>
-      <td>47</td>
-      <td>1</td>
-      <td>Greenway</td>
-      <td>Tuggeranong</td>
-      <td>2900</td>
-      <td>-35.415808</td>
-      <td>149.064815</td>
-      <td>2.541443</td>
-      <td>3044.733334</td>
-      <td>26.0</td>
-    </tr>
-    <tr>
-      <th>48</th>
-      <td>48</td>
-      <td>2</td>
-      <td>Griffith</td>
-      <td>South Canberra</td>
-      <td>2603</td>
-      <td>-35.325350</td>
-      <td>149.137130</td>
-      <td>1.149409</td>
-      <td>16830.000000</td>
-      <td>93.0</td>
-    </tr>
-    <tr>
-      <th>49</th>
-      <td>49</td>
-      <td>1</td>
-      <td>Gungahlin</td>
-      <td>Gungahlin</td>
-      <td>2912</td>
-      <td>-35.178878</td>
-      <td>149.123653</td>
-      <td>0.000000</td>
-      <td>755.000000</td>
-      <td>29.0</td>
-    </tr>
-    <tr>
-      <th>50</th>
-      <td>50</td>
-      <td>0</td>
-      <td>Hackett</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.249509</td>
-      <td>149.163544</td>
-      <td>3.264742</td>
-      <td>6606.500000</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>51</th>
-      <td>51</td>
-      <td>0</td>
-      <td>Harrison</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.199060</td>
-      <td>149.156126</td>
-      <td>3.707349</td>
-      <td>679.500000</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>52</th>
-      <td>52</td>
-      <td>1</td>
-      <td>Hawker</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.247044</td>
-      <td>149.036697</td>
-      <td>2.257885</td>
-      <td>3044.733334</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <th>53</th>
-      <td>53</td>
-      <td>1</td>
-      <td>Higgins</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.232407</td>
-      <td>149.027232</td>
-      <td>1.547605</td>
-      <td>689.500000</td>
-      <td>17.0</td>
-    </tr>
-    <tr>
-      <th>54</th>
-      <td>54</td>
-      <td>1</td>
-      <td>Holder</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.334483</td>
-      <td>149.046168</td>
-      <td>1.002174</td>
-      <td>752.500000</td>
-      <td>23.0</td>
-    </tr>
-    <tr>
-      <th>55</th>
-      <td>55</td>
-      <td>0</td>
-      <td>Holt</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.224396</td>
-      <td>149.011929</td>
-      <td>2.855497</td>
-      <td>643.500000</td>
-      <td>13.0</td>
-    </tr>
-    <tr>
-      <th>56</th>
-      <td>56</td>
-      <td>2</td>
-      <td>Hughes</td>
-      <td>Woden Valley</td>
-      <td>2605</td>
-      <td>-35.332625</td>
-      <td>149.094943</td>
-      <td>1.917944</td>
-      <td>6505.000000</td>
-      <td>32.0</td>
-    </tr>
-    <tr>
-      <th>57</th>
-      <td>57</td>
-      <td>0</td>
-      <td>Hume</td>
-      <td>Tuggeranong</td>
-      <td>2620</td>
-      <td>-35.385382</td>
-      <td>149.165847</td>
-      <td>7.614914</td>
-      <td>3044.733334</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>58</th>
-      <td>58</td>
-      <td>1</td>
-      <td>Isaacs</td>
-      <td>Woden Valley</td>
-      <td>2607</td>
-      <td>-35.368471</td>
-      <td>149.113099</td>
-      <td>2.695934</td>
-      <td>5652.500000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>59</th>
-      <td>59</td>
-      <td>1</td>
-      <td>Isabella Plains</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.428007</td>
-      <td>149.094009</td>
-      <td>0.799956</td>
-      <td>639.000000</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>60</th>
-      <td>60</td>
-      <td>0</td>
-      <td>Jacka</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.149516</td>
-      <td>149.130430</td>
-      <td>3.322507</td>
-      <td>3044.733334</td>
-      <td>4.0</td>
-    </tr>
-    <tr>
-      <th>61</th>
-      <td>61</td>
-      <td>0</td>
-      <td>Kaleen</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.227787</td>
-      <td>149.109139</td>
-      <td>4.590837</td>
-      <td>846.000000</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>62</th>
-      <td>62</td>
-      <td>0</td>
-      <td>Kambah</td>
-      <td>Tuggeranong</td>
-      <td>2902</td>
-      <td>-35.386229</td>
-      <td>149.057967</td>
-      <td>4.851143</td>
-      <td>699.000000</td>
-      <td>12.0</td>
-    </tr>
-    <tr>
-      <th>63</th>
-      <td>63</td>
-      <td>2</td>
-      <td>Kingston</td>
-      <td>South Canberra</td>
-      <td>2604</td>
-      <td>-35.315230</td>
-      <td>149.146592</td>
-      <td>1.390824</td>
-      <td>3044.733334</td>
-      <td>96.0</td>
-    </tr>
-    <tr>
-      <th>64</th>
-      <td>64</td>
-      <td>1</td>
-      <td>Latham</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.216391</td>
-      <td>149.031639</td>
-      <td>1.612486</td>
-      <td>682.000000</td>
-      <td>17.0</td>
-    </tr>
-    <tr>
-      <th>65</th>
-      <td>65</td>
-      <td>0</td>
-      <td>Lawson</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.224992</td>
-      <td>149.088179</td>
-      <td>4.099591</td>
-      <td>1171.296865</td>
-      <td>14.0</td>
-    </tr>
-    <tr>
-      <th>66</th>
-      <td>66</td>
-      <td>1</td>
-      <td>Lyneham</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.239801</td>
-      <td>149.130735</td>
-      <td>2.738301</td>
-      <td>1966.819310</td>
-      <td>44.0</td>
-    </tr>
-    <tr>
-      <th>67</th>
-      <td>67</td>
-      <td>2</td>
-      <td>Lyons</td>
-      <td>Woden Valley</td>
-      <td>2606</td>
-      <td>-35.340558</td>
-      <td>149.073938</td>
-      <td>2.096756</td>
-      <td>6261.500000</td>
-      <td>54.0</td>
-    </tr>
-    <tr>
-      <th>68</th>
-      <td>68</td>
-      <td>0</td>
-      <td>Macarthur</td>
-      <td>Tuggeranong</td>
-      <td>2904</td>
-      <td>-35.405132</td>
-      <td>149.131673</td>
-      <td>3.992880</td>
-      <td>3044.733334</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>69</th>
-      <td>69</td>
-      <td>0</td>
-      <td>Macgregor</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.209774</td>
-      <td>149.011021</td>
-      <td>3.517380</td>
-      <td>686.500000</td>
-      <td>15.0</td>
-    </tr>
-    <tr>
-      <th>70</th>
-      <td>70</td>
-      <td>0</td>
-      <td>Macnamara</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.218657</td>
-      <td>148.976441</td>
-      <td>6.137284</td>
-      <td>3044.733334</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <th>71</th>
-      <td>71</td>
-      <td>2</td>
-      <td>Macquarie</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.251113</td>
-      <td>149.063306</td>
-      <td>3.207053</td>
-      <td>1499.100084</td>
-      <td>68.0</td>
-    </tr>
-    <tr>
-      <th>72</th>
-      <td>72</td>
-      <td>1</td>
-      <td>Mawson</td>
-      <td>Woden Valley</td>
-      <td>2607</td>
-      <td>-35.363368</td>
-      <td>149.098894</td>
-      <td>1.565181</td>
-      <td>6165.000000</td>
-      <td>20.0</td>
-    </tr>
-    <tr>
-      <th>73</th>
-      <td>73</td>
-      <td>0</td>
-      <td>McKellar</td>
-      <td>Belconnen</td>
-      <td>2617</td>
-      <td>-35.217463</td>
-      <td>149.077032</td>
-      <td>3.271774</td>
-      <td>1471.116882</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>74</th>
-      <td>74</td>
-      <td>1</td>
-      <td>Melba</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.210074</td>
-      <td>149.054127</td>
-      <td>2.172843</td>
-      <td>703.500000</td>
-      <td>19.0</td>
-    </tr>
-    <tr>
-      <th>75</th>
-      <td>75</td>
-      <td>0</td>
-      <td>Mitchell</td>
-      <td>Gungahlin</td>
-      <td>2911</td>
-      <td>-35.218893</td>
-      <td>149.136383</td>
-      <td>4.597390</td>
-      <td>3044.733334</td>
-      <td>9.0</td>
-    </tr>
-    <tr>
-      <th>76</th>
-      <td>76</td>
-      <td>1</td>
-      <td>Molonglo</td>
-      <td>Molonglo Valley</td>
-      <td>0</td>
-      <td>-35.299828</td>
-      <td>149.040199</td>
-      <td>0.833547</td>
-      <td>3044.733334</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>77</th>
-      <td>77</td>
-      <td>1</td>
-      <td>Monash</td>
-      <td>Tuggeranong</td>
-      <td>2904</td>
-      <td>-35.415738</td>
-      <td>149.090690</td>
-      <td>0.597095</td>
-      <td>737.000000</td>
-      <td>20.0</td>
-    </tr>
-    <tr>
-      <th>78</th>
-      <td>78</td>
-      <td>1</td>
-      <td>Moncrieff</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.158821</td>
-      <td>149.116306</td>
-      <td>2.328109</td>
-      <td>699.000000</td>
-      <td>4.0</td>
-    </tr>
-    <tr>
-      <th>79</th>
-      <td>79</td>
-      <td>2</td>
-      <td>Narrabundah</td>
-      <td>South Canberra</td>
-      <td>2604</td>
-      <td>-35.335692</td>
-      <td>149.149222</td>
-      <td>2.711774</td>
-      <td>11900.000000</td>
-      <td>36.0</td>
-    </tr>
-    <tr>
-      <th>80</th>
-      <td>80</td>
-      <td>1</td>
-      <td>Ngunnawal</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.172790</td>
-      <td>149.111468</td>
-      <td>1.298026</td>
-      <td>685.500000</td>
-      <td>11.0</td>
-    </tr>
-    <tr>
-      <th>81</th>
-      <td>81</td>
-      <td>1</td>
-      <td>Nicholls</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.187161</td>
-      <td>149.096481</td>
-      <td>2.635543</td>
-      <td>631.459689</td>
-      <td>17.0</td>
-    </tr>
-    <tr>
-      <th>82</th>
-      <td>82</td>
-      <td>2</td>
-      <td>O'Connor</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.256600</td>
-      <td>149.115597</td>
-      <td>1.765292</td>
-      <td>12800.000000</td>
-      <td>36.0</td>
-    </tr>
-    <tr>
-      <th>83</th>
-      <td>83</td>
-      <td>1</td>
-      <td>O'Malley</td>
-      <td>Woden Valley</td>
-      <td>2606</td>
-      <td>-35.351360</td>
-      <td>149.110687</td>
-      <td>1.518254</td>
-      <td>3044.733334</td>
-      <td>7.0</td>
-    </tr>
-    <tr>
-      <th>84</th>
-      <td>84</td>
-      <td>1</td>
-      <td>Oxley</td>
-      <td>Tuggeranong</td>
-      <td>2903</td>
-      <td>-35.409442</td>
-      <td>149.078648</td>
-      <td>1.771644</td>
-      <td>3044.733334</td>
-      <td>37.0</td>
-    </tr>
-    <tr>
-      <th>85</th>
-      <td>85</td>
-      <td>2</td>
-      <td>Page</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.238547</td>
-      <td>149.049940</td>
-      <td>1.381300</td>
-      <td>1401.158878</td>
-      <td>70.0</td>
-    </tr>
-    <tr>
-      <th>86</th>
-      <td>86</td>
-      <td>1</td>
-      <td>Palmerston</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.194461</td>
-      <td>149.119415</td>
-      <td>1.774984</td>
-      <td>727.500000</td>
-      <td>30.0</td>
-    </tr>
-    <tr>
-      <th>87</th>
-      <td>87</td>
-      <td>2</td>
-      <td>Parkes</td>
-      <td>South Canberra</td>
-      <td>2600</td>
-      <td>-35.295915</td>
-      <td>149.135156</td>
-      <td>2.279085</td>
-      <td>3044.733334</td>
-      <td>95.0</td>
-    </tr>
-    <tr>
-      <th>88</th>
-      <td>88</td>
-      <td>2</td>
-      <td>Pearce</td>
-      <td>Woden Valley</td>
-      <td>2607</td>
-      <td>-35.362170</td>
-      <td>149.083589</td>
-      <td>1.665477</td>
-      <td>6105.000000</td>
-      <td>40.0</td>
-    </tr>
-    <tr>
-      <th>89</th>
-      <td>89</td>
-      <td>1</td>
-      <td>Phillip</td>
-      <td>Woden Valley</td>
-      <td>2606</td>
-      <td>-35.347044</td>
-      <td>149.091009</td>
-      <td>0.417048</td>
-      <td>3044.733334</td>
-      <td>36.0</td>
-    </tr>
-    <tr>
-      <th>90</th>
-      <td>90</td>
-      <td>2</td>
-      <td>Red Hill</td>
-      <td>South Canberra</td>
-      <td>2603</td>
-      <td>-35.333438</td>
-      <td>149.120586</td>
-      <td>2.152429</td>
-      <td>11102.221571</td>
-      <td>28.0</td>
-    </tr>
-    <tr>
-      <th>91</th>
-      <td>91</td>
-      <td>2</td>
-      <td>Reid</td>
-      <td>North Canberra</td>
-      <td>2612</td>
-      <td>-35.282598</td>
-      <td>149.141221</td>
-      <td>2.173201</td>
-      <td>3044.733334</td>
-      <td>100.0</td>
-    </tr>
-    <tr>
-      <th>92</th>
-      <td>92</td>
-      <td>1</td>
-      <td>Richardson</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.427902</td>
-      <td>149.113947</td>
-      <td>2.121214</td>
-      <td>1241.254869</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>93</th>
-      <td>93</td>
-      <td>1</td>
-      <td>Rivett</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.347071</td>
-      <td>149.037983</td>
-      <td>0.979357</td>
-      <td>730.000000</td>
-      <td>23.0</td>
-    </tr>
-    <tr>
-      <th>94</th>
-      <td>94</td>
-      <td>2</td>
-      <td>Russell</td>
-      <td>North Canberra</td>
-      <td>2600</td>
-      <td>-35.297960</td>
-      <td>149.150279</td>
-      <td>2.657789</td>
-      <td>3044.733334</td>
-      <td>60.0</td>
-    </tr>
-    <tr>
-      <th>95</th>
-      <td>95</td>
-      <td>1</td>
-      <td>Scullin</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.234534</td>
-      <td>149.039072</td>
-      <td>0.871915</td>
-      <td>1249.250070</td>
-      <td>14.0</td>
-    </tr>
-    <tr>
-      <th>96</th>
-      <td>96</td>
-      <td>0</td>
-      <td>Spence</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.198732</td>
-      <td>149.064356</td>
-      <td>3.728122</td>
-      <td>516.770073</td>
-      <td>10.0</td>
-    </tr>
-    <tr>
-      <th>97</th>
-      <td>97</td>
-      <td>1</td>
-      <td>Stirling</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.349584</td>
-      <td>149.049358</td>
-      <td>0.702434</td>
-      <td>3044.733334</td>
-      <td>24.0</td>
-    </tr>
-    <tr>
-      <th>98</th>
-      <td>98</td>
-      <td>0</td>
-      <td>Strathnairn</td>
-      <td>Belconnen</td>
-      <td>2615</td>
-      <td>-35.232390</td>
-      <td>148.985554</td>
-      <td>5.259923</td>
-      <td>477.428868</td>
-      <td>4.0</td>
-    </tr>
-    <tr>
-      <th>99</th>
-      <td>99</td>
-      <td>0</td>
-      <td>Taylor</td>
-      <td>Gungahlin</td>
-      <td>2913</td>
-      <td>-35.146804</td>
-      <td>149.107199</td>
-      <td>3.867465</td>
-      <td>724.500000</td>
-      <td>3.0</td>
-    </tr>
-    <tr>
-      <th>100</th>
-      <td>100</td>
-      <td>0</td>
-      <td>Theodore</td>
-      <td>Tuggeranong</td>
-      <td>2905</td>
-      <td>-35.449611</td>
-      <td>149.119744</td>
-      <td>4.048983</td>
-      <td>642.500000</td>
-      <td>7.0</td>
-    </tr>
-    <tr>
-      <th>101</th>
-      <td>101</td>
-      <td>0</td>
-      <td>Throsby</td>
-      <td>Gungahlin</td>
-      <td>2914</td>
-      <td>-35.188954</td>
-      <td>149.161749</td>
-      <td>3.638973</td>
-      <td>713.500000</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <th>102</th>
-      <td>102</td>
-      <td>1</td>
-      <td>Torrens</td>
-      <td>Woden Valley</td>
-      <td>2607</td>
-      <td>-35.371950</td>
-      <td>149.087880</td>
-      <td>2.519382</td>
-      <td>883.500000</td>
-      <td>13.0</td>
-    </tr>
-    <tr>
-      <th>103</th>
-      <td>103</td>
-      <td>2</td>
-      <td>Turner</td>
-      <td>North Canberra</td>
-      <td>2612</td>
-      <td>-35.268870</td>
-      <td>149.124577</td>
-      <td>0.878674</td>
-      <td>3044.733334</td>
-      <td>100.0</td>
-    </tr>
-    <tr>
-      <th>104</th>
-      <td>104</td>
-      <td>1</td>
-      <td>Wanniassa</td>
-      <td>Tuggeranong</td>
-      <td>2903</td>
-      <td>-35.397664</td>
-      <td>149.090804</td>
-      <td>2.595079</td>
-      <td>699.000000</td>
-      <td>17.0</td>
-    </tr>
-    <tr>
-      <th>105</th>
-      <td>105</td>
-      <td>1</td>
-      <td>Waramanga</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.352815</td>
-      <td>149.062215</td>
-      <td>1.675379</td>
-      <td>757.500000</td>
-      <td>25.0</td>
-    </tr>
-    <tr>
-      <th>106</th>
-      <td>106</td>
-      <td>0</td>
-      <td>Watson</td>
-      <td>North Canberra</td>
-      <td>2602</td>
-      <td>-35.234823</td>
-      <td>149.159446</td>
-      <td>4.095278</td>
-      <td>5567.500000</td>
-      <td>15.0</td>
-    </tr>
-    <tr>
-      <th>107</th>
-      <td>107</td>
-      <td>2</td>
-      <td>Weetangera</td>
-      <td>Belconnen</td>
-      <td>2614</td>
-      <td>-35.250114</td>
-      <td>149.049737</td>
-      <td>2.591961</td>
-      <td>6934.720981</td>
-      <td>71.0</td>
-    </tr>
-    <tr>
-      <th>108</th>
-      <td>108</td>
-      <td>1</td>
-      <td>Weston</td>
-      <td>Weston Creek</td>
-      <td>2611</td>
-      <td>-35.332488</td>
-      <td>149.058736</td>
-      <td>1.567158</td>
-      <td>838.000000</td>
-      <td>22.0</td>
-    </tr>
-    <tr>
-      <th>109</th>
-      <td>109</td>
-      <td>0</td>
-      <td>Whitlam</td>
-      <td>Molonglo Valley</td>
-      <td>0</td>
-      <td>-35.278096</td>
-      <td>149.036398</td>
-      <td>2.943000</td>
-      <td>3044.733334</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>110</th>
-      <td>110</td>
-      <td>1</td>
-      <td>Wright</td>
-      <td>Molonglo Valley</td>
-      <td>2611</td>
-      <td>-35.319264</td>
-      <td>149.033617</td>
-      <td>1.652823</td>
-      <td>783.000000</td>
-      <td>4.0</td>
-    </tr>
-    <tr>
-      <th>111</th>
-      <td>111</td>
-      <td>2</td>
-      <td>Yarralumla</td>
-      <td>South Canberra</td>
-      <td>2600</td>
-      <td>-35.304041</td>
-      <td>149.098635</td>
-      <td>3.256987</td>
-      <td>15775.000000</td>
-      <td>21.0</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-#+end_export
-
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_cluster['Cluster'].value_counts()
 #+END_SRC
 
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+canberra_venues = pd.read_csv('data/canberra_venues.csv')
+canberra_venues.head()
+
+# one hot encoding
+canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add suburb column back to dataframe
+canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
+
+# move Suburb column to the first column
+list_column = canberra_onehot.columns.tolist()
+number_column = int(list_column.index('Suburb'))
+list_column = [list_column[number_column]] + list_column[:number_column] + list_column[number_column+1:] 
+canberra_onehot = canberra_onehot[list_column]
+#+END_SRC
+
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none :results file
+canberra_grouped_clustering = canberra_grouped.drop('Suburb', 1)
+
+distortions = []
+K = range(1,10)
+for k in K:
+    kmeanModel = KMeans(n_clusters=k, random_state=0).fit(canberra_grouped_clustering)
+    distortions.append(sum(np.min(cdist(canberra_grouped_clustering, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / canberra_grouped_clustering.shape[0])
+    
+# Plot the elbow
+plt.plot(K, distortions, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Distortion')
+plt.title('k-means on venue category dataset.')
+plt.savefig('figures/kmeans-optimal-venue.pdf')
+plt.show()
+#+END_SRC
+
 #+results:
-: 1    44
-: 0    41
-: 2    27
-: Name: Cluster, dtype: int64
+:RESULTS:
+: /home/fanpeng/VirtualEnvs/Py3Station/lib/python3.6/site-packages/ipykernel_launcher.py:15: UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.
+:   from ipykernel import kernelapp as app
+[[file:./.ob-jupyter/3e97583325a9deb31f47f9d06e09b5c99d089762.png]]
+:END:
 
-*** Revisit statistics on clustered suburbs
-    :PROPERTIES:
-    :CUSTOM_ID: revisit-statistics-on-clustered-suburbs
-    :END:
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# set number of clusters
+kclusters = 4
 
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none :file figures/suburbs_statistics_clusters.jpg
+# run k-means clustering
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(canberra_grouped_clustering)
+
+# check cluster labels generated for each row in the dataframe
+labels = kmeans.labels_
+df_venues['Cluster'] = labels
+df_venues.head()
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+df_venues_merged = pd.merge(df_can, df_venues, left_on='Suburb', right_on='Suburb', how='inner')
+df_venues_merged.head()
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# create map
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i*x)**2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
+
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(df_venues_merged['Latitude'], df_venues_merged['Longitude'], df_venues_merged['Suburb'], df_venues_merged['Cluster']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster-1],
+        fill=True,
+        fill_color=rainbow[cluster-1],
+        fill_opacity=0.7).add_to(map_clusters)
+    
+# add markers to towncenters
+for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
+    label = '{}'.format(towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=30,
+        popup=label,
+        color='purple',
+        fill=True,
+        fill_color='#EDE3FF',
+        fill_opacity=0.3,
+        parse_html=False).add_to(map_clusters)
+       
+map_clusters
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+# create map
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i*x)**2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
+
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(df_cluster['Latitude'], df_cluster['Longitude'], df_cluster['Suburb'], df_cluster['Cluster']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster-1],
+        fill=True,
+        fill_color=rainbow[cluster-1],
+        fill_opacity=0.7).add_to(map_clusters)
+    
+# add markers to towncenters
+for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
+    label = '{}'.format(towncenter)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=30,
+        popup=label,
+        color='purple',
+        fill=True,
+        fill_color='#EDE3FF',
+        fill_opacity=0.3,
+        parse_html=False).add_to(map_clusters)
+       
+map_clusters
+#+END_SRC
+
+The two figures below showed Folium maps and the clustered suburbs based on the main dataset the venue category dataset, together with towncenters.
+From the left figure, it is clear that most suburbs in North and South Canberra have been segmented into one category.
+The other cluster include those suburbs which are very close to towncenters but do not belong to the inner north or south Canberra.
+The rest suburbs which are located near the edge of each local towncenter make up the last category.
+
+The right figure showing the suburbs clusters based on the venue category information tells a different story though.
+While suburbs in North and South Canberra still fall in one category, they are joined by some suburbs from the Tuggeranong area.
+The other obvious trend is that suburbs belonging to north and south towncenters seem to differ from the type of venues they host.
+This might be related to the development and poupulation growth shift in Canberra happened in recent years but will need some further analysis.
+
+#+BEGIN_center
+#+ATTR_LaTeX: :width 0.45\textwidth :center
+[[file:figures/map_cluster1.png]]
+#+ATTR_LaTeX: :width 0.45\textwidth :center
+[[file:figures/map_cluster2.png]]
+#+END_center
+
+** Revisit statistics on clustered suburbs
+   :PROPERTIES:
+   :CUSTOM_ID: revisit-statistics-on-clustered-suburbs
+   :END:
+
+After clustering and segmenting all the Canberra suburbs based on the main data set, i.e. median price for 3 or 4 bedrooms houses, distance to nearest towncenters and number of venues within 2km radius, the same statitics were performed again on the suburbs grouped by clusters instead of towncenters.
+Cluster 2 includes most of the inner north and south suburbs in Canberra.
+These suburbs cover the parliamentary triangle of Canberra and many of the national galleries and institutions can be found here too.
+Therefore the number of venues are much higher than the other two clusters.
+The downside of these suburbs are the much higher median house prices as shown in the first figure.
+Cluster 1 suburbs mainly represent those close to local towncenters and in my opinion have the best trade-offs: surly the do not have as many venues as the inner ones but their house prices are also much lower.
+The last cluster 0 is made up by the suburbs near the edge of each local towncenters evidenced by the nearest distance to towncenters shown in the right most figure.
+They do not show many advantages compared to suburbs in the other two groups: for example, their distance to nearest towncenter almost doubled than those in cluster 1; the number of venues are much less while the median price for 3 or 4 bedrooms house showed a very similar profile to cluster 1 suburbs.
+
+
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :file figures/suburbs_statistics_clusters.jpg
 boxprops = dict(linestyle='-', linewidth=4, color='k')
 medianprops = dict(linestyle='-', linewidth=4, color='k')
 
@@ -2565,219 +1205,30 @@ ax3.tick_params(axis="x", rotation=45)
 #+results:
 [[file:figures/suburbs_statistics_clusters.jpg]]
 
-
-Now let's create a Folium map and add the clusterd suburbs together with
-towncenters. It is clear that suburbs in North and South Canberra have
-been segmented into one category as these suburnbs. The other category
-are those very close to towncenters while the rest suburbs make up the
-last category.
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-# create map
-map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
-
-# set color scheme for the clusters
-x = np.arange(kclusters)
-ys = [i + x + (i*x)**2 for i in range(kclusters)]
-colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
-rainbow = [colors.rgb2hex(i) for i in colors_array]
-
-# add markers to the map
-markers_colors = []
-for lat, lon, poi, cluster in zip(df_cluster['Latitude'], df_cluster['Longitude'], df_cluster['Suburb'], df_cluster['Cluster']):
-    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
-    folium.CircleMarker(
-        [lat, lon],
-        radius=5,
-        popup=label,
-        color=rainbow[cluster-1],
-        fill=True,
-        fill_color=rainbow[cluster-1],
-        fill_opacity=0.7).add_to(map_clusters)
-    
-# add markers to towncenters
-for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
-    label = '{}'.format(towncenter)
-    label = folium.Popup(label, parse_html=True)
-    folium.CircleMarker(
-        [lat, lng],
-        radius=30,
-        popup=label,
-        color='purple',
-        fill=True,
-        fill_color='#EDE3FF',
-        fill_opacity=0.3,
-        parse_html=False).add_to(map_clusters)
-       
-map_clusters
-#+END_SRC
-
-** k-means clustering on venue category dataset
-   :PROPERTIES:
-   :CUSTOM_ID: k-means-clustering-on-venue-category-dataset
-   :END:
-
-Let use k-means to cluster the suburbs based on the venue category
-information in each suburb now. First find optimal number of cluster:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-# canberra_venues = pd.read_csv('data/canberra_venues.csv')
-canberra_venues.head()
-
-# one hot encoding
-canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
-
-# add suburb column back to dataframe
-canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
-
-# move Suburb column to the first column
-list_column = canberra_onehot.columns.tolist()
-number_column = int(list_column.index('Suburb'))
-list_column = [list_column[number_column]] + list_column[:number_column] + list_column[number_column+1:] 
-canberra_onehot = canberra_onehot[list_column]
-
-canberra_onehot.head()
-#+END_SRC
-
-Now let's group rows by suburb and by taking the mean of the frequency
-of occurrence of each category:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
-canberra_grouped.head()
-#+END_SRC
-
-Run through different k values:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-canberra_grouped_clustering = canberra_grouped.drop('Suburb', 1)
-
-distortions = []
-K = range(1,10)
-for k in K:
-    kmeanModel = KMeans(n_clusters=k, random_state=0).fit(canberra_grouped_clustering)
-    distortions.append(sum(np.min(cdist(canberra_grouped_clustering, kmeanModel.cluster_centers_, 'canberra'), axis=1)) / canberra_grouped_clustering.shape[0])
-
-#There are different metric distance function for spatial distance. 
-#I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
-
-# Plot the elbow
-plt.plot(K, distortions, 'bx-')
-plt.xlabel('k')
-plt.ylabel('Distortion')
-plt.title('The Elbow Method showing the optimal k')
-plt.show()
-#+END_SRC
-
-
-Use optimal number 4 to rerun the k-means clustering:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-# set number of clusters
-kclusters = 4
-
-# run k-means clustering
-kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(canberra_grouped_clustering)
-
-# check cluster labels generated for each row in the dataframe
-labels = kmeans.labels_
-df_venues['Cluster'] = labels
-df_venues.head()
-#+END_SRC
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-df_venues_merged = pd.merge(df_can, df_venues, left_on='Suburb', right_on='Suburb', how='inner')
-df_venues_merged.head()
-#+END_SRC
-
-Now let's create a Folium map and use cluster labels from venue
-categories:
-
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-# create map
-map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
-
-# set color scheme for the clusters
-x = np.arange(kclusters)
-ys = [i + x + (i*x)**2 for i in range(kclusters)]
-colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
-rainbow = [colors.rgb2hex(i) for i in colors_array]
-
-# add markers to the map
-markers_colors = []
-for lat, lon, poi, cluster in zip(df_venues_merged['Latitude'], df_venues_merged['Longitude'], df_venues_merged['Suburb'], df_venues_merged['Cluster']):
-    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
-    folium.CircleMarker(
-        [lat, lon],
-        radius=5,
-        popup=label,
-        color=rainbow[cluster-1],
-        fill=True,
-        fill_color=rainbow[cluster-1],
-        fill_opacity=0.7).add_to(map_clusters)
-    
-# add markers to towncenters
-for lat, lng, towncenter in zip(df_town['Latitude'], df_town['Longitude'], df_town['Towncenter']):
-    label = '{}'.format(towncenter)
-    label = folium.Popup(label, parse_html=True)
-    folium.CircleMarker(
-        [lat, lng],
-        radius=30,
-        popup=label,
-        color='purple',
-        fill=True,
-        fill_color='#EDE3FF',
-        fill_opacity=0.3,
-        parse_html=False).add_to(map_clusters)
-       
-map_clusters
-#+END_SRC
-
 * Results and Discussion
   :PROPERTIES:
   :CUSTOM_ID: results-and-discussion-
   :END:
 
-Using the main dataset, most cluster 1 suburbs are located at the inner
-north or south Canberra. While these suburbs are well established with
-various venues, their price are also much higher than other suburbs.
-Suburbs in cluster 2 have the lowest price, but meanwhile they also do
-not have as many venues and the travel distance to towncenters are
-higher. Cluster 0 suburbs seem to have the best balance for all three
-factors and not superisingly they are located around other towncenters
-apart from the North and South Canberra.
+Using the main dataset, most cluster 1 suburbs are located at the inner north or south Canberra.
+While these suburbs are well established with various venues, their price are also much higher than other suburbs.
+Suburbs in cluster 2 have the lowest price, but meanwhile they also do not have as many venues and the travel distance to towncenters are higher.
+Cluster 0 suburbs seem to have the best balance for all three factors and not superisingly they are located around other towncenters apart from the North and South Canberra.
 
-Clustering results using venue category information are even more
-interesting: suburbs in North and South Canberra (together with
-Tuggeranoon) again are clustered into one segment while suburbs in other
-north towns (Belconnen and Gungahlin) are segmented together. Suburbs in
-Woden and Westen Creek share some similarities unlike other towns. These
-difference might very well becasue of the developmnet shift from South
-Canberra to North Canberras. Due to the scope of the study, I will not
-furth explore the behind reasons.
+Clustering results using venue category information are even more interesting: suburbs in North and South Canberra (together with Tuggeranoon) again are clustered into one segment while suburbs in other north towns (Belconnen and Gungahlin) are segmented together.
+Suburbs in Woden and Westen Creek share some similarities unlike other towns.
+These difference might very well becasue of the developmnet shift from South Canberra to North Canberras. Due to the scope of the study, I will not furth explore the behind reasons.
 
-Based on the above analysis, hopefully our young family now have
-more information to refere to when they finnaly decide which suburb to
-settle in.
+Based on the above analysis, hopefully our young family now have more information to refere to when they finnaly decide which suburb to settle in.
 
 * Conclusion
   :PROPERTIES:
   :CUSTOM_ID: conclusion-
   :END:
 
-In this study, various techniques varing from webscraping to open
-dataset have been used to collect data related to Canberra suburbs.
-Unsupervised k-means clustering algorithms have been applied to two
-assembed datasets: one master dataset consisting of median house price,
-number of venues and closest distance to nearby towncenters; while the
-second dataset includes venue category information around each suburb.
+In this study, various techniques varing from webscraping to open dataset have been used to collect data related to Canberra suburbs.
+Unsupervised k-means clustering algorithms have been applied to two assembed datasets: one master dataset consisting of median house price, number of venues and closest distance to nearby towncenters; while the second dataset includes venue category information around each suburb.
 
-As per the decision to choose which suburb to live in, certainly more
-factors should be considered, e.g. local schools, developing trend. They
-are not included in this study due to the limited time and the already
-lengthy contet, but definitely will be helpful to provide an even
-accurate and detailed suburb segmentation.
+As per the decision to choose which suburb to live in, certainly more factors should be considered, e.g. local schools, developing trend. They are not included in this study due to the limited time and the already lengthy contet, but definitely will be helpful to provide an even accurate and detailed suburb segmentation.
 
-Source of this capstone project
-[[https://github.com/fanpeng-kong/Coursera_Capstone][can be found on my
-Github]].
+Complete source of this capstone project [[https://github.com/fanpeng-kong/Coursera_Capstone][can be found on my Github]].
