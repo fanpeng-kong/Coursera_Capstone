@@ -42,11 +42,11 @@ only ranks 6 among all the 8 Australia capitals.
 
 However for any new settlers in Canberra, it could be a bit hard at the
 beginning to find the right area to live in. Canberra has a total of more
-than 100 local suburbs and 7 districts (or town centers as Canberrans
+than 100 local suburbs and 7 districts (or towncenters as Canberrans
 refere to) and most of the facities, entertaiments and large shopping
-centers are located in these town centers. And if you ask any Canberran
+centers are located in these towncenters. And if you ask any Canberran
 for suggestions about the using the public transport system to travel
-between these suburbs or town centers, he/she propaly would recommend
+between these suburbs or towncenters, he/she propaly would recommend
 you to get a car as the first thing after you find an accommadation. The
 rental cost or property price among these suburbs can also differ to a
 large extent based on their locations.
@@ -55,7 +55,7 @@ Assume that we have a young family who just moved from interstates or
 overseas and would like to purchase a 3 or 4 bedrooms house in Canberra
 to settle down. They set a budget for thier property hunting. What would
 be the best suburbs that they should look into in terms of propety
-price, travel distance to town centers etc. In this study, I will try to
+price, travel distance to towncenters etc. In this study, I will try to
 find the answer for them using the data science skills that I have
 acquired during the courses.
 
@@ -64,36 +64,25 @@ acquired during the courses.
   :CUSTOM_ID: data-
   :END:
 
-First, I set out the required dataset in order to characterise the
-suburbs. As the choice of the interesting suburb to purchase property is
-mainly based on real estate price and convenience to local facilities, I
-will try to gather the median price for 3/4 bedrooms in each suburb,
-distance of each suburb to its nearest town centers and the number and
-type of venues close to each suburb.
+It is necessary to set out the required dataset for clustering and segmenting the suburbs first before attempting any data collection steps.
+As the choice of the interesting suburb to purchase property is mainly based on several aspects such as real estate price and convenience to towncenters and access to local facilities.
+After some considerations, I decided to use two different datasets for the suburbs clustering and segmentation analysis.
+The main dataset includes the median house price with 3 or 4 bedrooms in each suburb, distance of each suburb to its nearest towncenters and the number of venues within 2km from each suburb's center point.
+The second dataset mainly consists of types or category information of venues close to each suburb within the same distance.
 
-I will exercise different methods from webscraping to open datasets to
-collect the requred data for my analysis:
+During the data collection state, I exercised different methods from webscraping to open datasets which have been covered in previous courses:
 
-- For the list of town centers and suburbs in Canberra, I will use
-  webscraping to extract relevant fields from the table found in the
-  Wikipedia page
-  [[https://en.wikipedia.org/wiki/List_of_Canberra_suburbs][List of Canberra Suburbs]]
+- For the list of towncenters and suburbs in Canberra, webscraping was used to extract relevant fields from the table found in the Wikipedia page [[https://en.wikipedia.org/wiki/List_of_Canberra_suburbs][List of Canberra Suburbs]]
 
-- The latitude and longitude of town centers and suburbs will be
-  retrieved using the geocoder library, after which the distance from
-  suburb to town center can be calculated using the
-  [[https://developers.google.com/maps/documentation/distance-matrix][Google Distance Matrix API]] or the Python
-  [[https://pypi.org/project/haversine/][Haversine]] library.
+- Postcode for each suburb was extracted from an open dataset found on [[https://www.matthewproctor.com/australian_postcodes][Matthew Proctor's website]].
 
-- The number and type of venues around each suburb will be retrieved by
-  calling the Forsquare APIs covered in this course.
+- The latitude and longitude of towncenters and suburbs were retrieved using the geocoder library, whereas the distance from suburb to towncenter was calculated using the [[https://developers.google.com/maps/documentation/distance-matrix][Google Distance Matrix API]] or the Python [[https://pypi.org/project/haversine/][Haversine]] library.
 
-- The median price for 3- or 4-bedroom houses will be scraped from
-  [[https://www.domain.com.au/suburb-profile/][Domain's suburb profile]]
-  page.
+- The number and type of venues around each suburb was retrieved by calling the Forsquare APIs.
 
-Steps to retrive these data will be explained in more details below but
-first let us import some of the commonly used Python libraries.
+- The median prices for 3 or 4 bedrooms houses were scraped from [[https://www.domain.com.au/suburb-profile/][Domain's suburb profile]] page using =requests= and =BeautifulSoup= libraries.
+
+In the following sections, steps to retrieve these data will be explained in more details.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 import numpy as np # library to handle data in a vectorized manner
@@ -132,16 +121,13 @@ print('Libraries imported.')
 #+results:
 : Libraries imported.
 
-** Get towncenter and suburbs
+** Get towncenter and suburbs list
    :PROPERTIES:
    :CUSTOM_ID: get-towncenter-and-suburbs
    :END:
 
-First we need to get a list of town centers and suburbs which belong to
-it. It turns out that this dataset is not easily to be found online in a
-nicly formated form like .csv or spreadsheet. So we go to the Wikipedia
-page of [[https://en.wikipedia.org/wiki/Suburbs_of_Canberra][Suburbs of
-Canberra]] and retrieve the data from the bottom tables:
+The first step for data collection was to get a list of towncenters and suburbs which belong to them. It turned out that this dataset with an easy to use format like .csv or spreadsheet is not easily found online.
+The Wikipedia page of [[https://en.wikipedia.org/wiki/Suburbs_of_Canberra][Suburbs of Canberra]] includes such information in the expandable tables near the bottom.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 url = "https://en.wikipedia.org/wiki/Suburbs_of_Canberra"
@@ -171,11 +157,8 @@ for table in soup.find_all('table'):
 ['nowraplinks', 'hlist', 'mw-collapsible', 'autocollapse', 'navbox-inner']
 #+end_example
 
-A small challenge here is that those foldable tabels are nested and
-therefore same information may occure at different hierachy levels.
-After an cross examination between the webpage and the html inspector, I
-am able to narrow down the innerest talbe that containing the list of
-suburbs together with their corresponding town centers:
+A small challenge here was that those foldable tabels are nested and therefore same information may occure at different hierarchy levels.
+After an cross examination between the webpage and the html inspector, I was able to narrow down the innerest talbe that containing the list of suburbs together with their corresponding towncenters.
 
 [[file:figures/canberra_suburbs_wiki.png]]
 
@@ -186,14 +169,14 @@ table_can = tables[1]
 
 #+results:
 
-For Belconnen to Woden Valley, each =tr= element has a =th= tag which
-includes the /Towncenter/ name and a =td= tag which includes an
-unordered list =ul= tag consisting of its suburbs.
+I decided to separate the /Canberra Central/ district into /North Canberra/ and /South Canberra/ for the analysis.
+The html source for each district row corresponds to a =tr= tag, within which are a =th= tag representing the /Towncenter/ name and a =td= tag consisting of an unordered list denoting the suburbs (=ul= tag).
+
 
 [[file:figures/canberra_suburbs_html.png]]
 
-Let's define a function to retrieve the towncenter and suburbs from a
-given row:
+# Let's define a function to retrieve the towncenter and suburbs from a
+# given row:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # Get towncenter and surburbs from each table row
@@ -207,12 +190,6 @@ def get_suburbs(trow):
 #+END_SRC
 
 #+results:
-
-We would also like to separate the /Canberra Central/ district into
-/North Canberra/ and /South Canberra/ for our analysis. Therefore we
-skip the outer row for /Canberra Central/ and instead using inner rows
-corresponding to /North Canberra/ and /South Canberra/. Let's create a
-Pandas DataFrame to store the results:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # createing the data frame
@@ -230,8 +207,8 @@ for row in table_can.tbody.find_all('tr'):
 
 #+results:
 
-Now seperate each suburb to individual rows and create a new Pandas
-DataFrame =df_can=. This will be our master DataFrame for the required
+Then I separated each suburb to individual rows and create a new Pandas
+DataFrame =df_can=. This will be my master DataFrame for the required
 datasets and will be updated as new information is added. Hereafter we
 store the =df_can= to individual .csv files at different stages. This
 will allow us to read the datasets from stored files instead of
@@ -261,11 +238,9 @@ df_can.to_csv('data/canberra_suburbs.csv', index=False)
    :END:
 
 Although the post code for each suburb is not directly used in this
-analysis, it is necessary to collect them as we will use it later when
+analysis, it is necessary to collect them as I will use it later when
 scrap house price information. A FreeDatabase of Australian Postcodes
-can be found on
-[[https://www.matthewproctor.com/australian_postcodes][Matthew Proctor's
-website]]. Let's download the dataset and read them into a Pandas
+can be found on [[https://www.matthewproctor.com/australian_postcodes][Matthew Proctor's website]]. Let's download the dataset and read them into a Pandas
 DataFrame:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
@@ -330,14 +305,14 @@ df_can.to_csv('data/canberra_suburbs_geo.csv', index=False)
     :END:
 
 Let's create a seperate DataFrame =df_town= for the towncenters and
-their latitude and longitude information. First check if we have all the
-8 towncenters included in our master DataFrame:
+their latitude and longitude information. First check if I have all the
+8 towncenters included in the master DataFrame:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 df_can['Towncenter'].unique()
 #+END_SRC
 
-Looks all right. Now we use geocoder to populate the latitude and
+Looks all right. Now I use geocoder to populate the latitude and
 longitude for all the towncenters and store that to a .csv file too.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
@@ -472,7 +447,7 @@ demographic one that it belongs to.
   df_to.head()
 #+END_SRC
 
-Now we can add the nearest distance to towncenter information to our
+Now I can add the nearest distance to towncenter information to our
 master DataFraem =df_can=:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
@@ -497,8 +472,8 @@ suburb /Banks/]]:
 
 [[file:figures/domain_price.png]]
 
-We are interested in the price for a 3 or 4 bedrooms house for the young
-family wanting to settle down in Canberra. A little bit of exploration
+The price of properties under interest are 3 or 4 bedrooms house for the young
+family who want to settle down in Canberra. A little bit of exploration
 on the URLs for each suburb reveals that the suffix part has a pattern
 of =suburb-name/act/postcoe= with special character in the suburb name
 like single quote or space being replaced by a =-= character. So we
@@ -540,8 +515,8 @@ house:
 It is worth to note that not all suburbs have this Market trends table
 as it is based on the sales data in the past 12 months. Additionaly even
 the table exists, it is not always to have the price for 3/4 bedroom
-house for the very same reason. We will need to take care of these
-exceptions during the webscraping proceess and later on we will handle
+house for the very same reason. I will need to take care of these
+exceptions during the webscraping proceess and later on I will handle
 the missing information for some suburbs.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
@@ -583,29 +558,29 @@ the missing information for some suburbs.
     :CUSTOM_ID: fixing-missing-prices
     :END:
 
-Let's first check the number of suburbs that we didn't find a price for
+Let's first check the number of suburbs that I didn't find a price for
 3/4-bedroom houses as well as the number of thouse only has either 3 or
 4-bedrooms:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  no_bed3_and_bed4 = df_price['bed3'].isnull() & df_price['bed4'].isnull()
-  no_bed3 = df_price['bed3'].isnull() & df_price['bed4'].notnull()
-  no_bed4 = df_price['bed3'].notnull() & df_price['bed4'].isnull()
-  total = df_price.shape[0]
+no_bed3_and_bed4 = df_price['bed3'].isnull() & df_price['bed4'].isnull()
+no_bed3 = df_price['bed3'].isnull() & df_price['bed4'].notnull()
+no_bed4 = df_price['bed3'].notnull() & df_price['bed4'].isnull()
+total = df_price.shape[0]
 
-  print('No price for both 3 and 4 bedrooms: {}, missing {:.2f}%'.format(no_bed3_and_bed4.sum(), 
-                                                                      no_bed3_and_bed4.sum()*100/total))
-  print('No price for 3 bedrooms: {}, missing {:.2f}%'.format(no_bed3.sum(),
-                                                            no_bed3.sum()*100/total))
-  print('No price for 4 bedrooms: {}, missing {:.2f}%'.format(no_bed4.sum(),
-                                                             no_bed4.sum()*100/total))
+print('No price for both 3 and 4 bedrooms: {}, missing {:.2f}%'.format(no_bed3_and_bed4.sum(), 
+                                                                    no_bed3_and_bed4.sum()*100/total))
+print('No price for 3 bedrooms: {}, missing {:.2f}%'.format(no_bed3.sum(),
+                                                          no_bed3.sum()*100/total))
+print('No price for 4 bedrooms: {}, missing {:.2f}%'.format(no_bed4.sum(),
+                                                           no_bed4.sum()*100/total))
 #+END_SRC
 
 The missing rates for only 3 or 4 bedrooms are below 10% whereas missing
-rate for both 3 and 4 bedrooms are even higher 28%. Instead of dumpping
+rate for both 3 and 4 bedrooms are even higher 28%. Instead of dumping
 the rows with missing values or using the column mean to fill in the
 missing values directly which is likely to insert many same price
-values, we use the following strategy to fix the missing prices:
+values, I use the following strategy to fix the missing prices:
 
 1. Assume the ratio for 4-bedroom and 3-bedroom price is similar in all
    the suburbs, calculate this ratio based on the average of suburbs
@@ -616,20 +591,20 @@ values, we use the following strategy to fix the missing prices:
    respectively.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  #1. calculate mean ration between 3 and 4 bedroom house price
-  df_p = df_price[df_price['bed3'].notnull() & df_price['bed4'].notnull()]
-  scale = (df_p['bed4'] / df_p['bed3']).mean()
-  #2. pupulating missing price using the mean scale based on the other existing price
-  df_price['bed4'][no_bed4] = df_price[no_bed4]['bed3'] * scale
-  df_price['bed3'][no_bed3] = df_price[no_bed3]['bed4'] / scale
-  #3. for those missing both 3&4 bedrooms, using the column mean
-  df_price['bed3'].fillna(value=df_price['bed3'].mean(), inplace=True)
-  df_price['bed4'].fillna(value=df_price['bed4'].mean(), inplace=True)
-  df_price.head()
+#1. calculate mean ration between 3 and 4 bedroom house price
+df_p = df_price[df_price['bed3'].notnull() & df_price['bed4'].notnull()]
+scale = (df_p['bed4'] / df_p['bed3']).mean()
+#2. pupulating missing price using the mean scale based on the other existing price
+df_price['bed4'][no_bed4] = df_price[no_bed4]['bed3'] * scale
+df_price['bed3'][no_bed3] = df_price[no_bed3]['bed4'] / scale
+#3. for those missing both 3&4 bedrooms, using the column mean
+df_price['bed3'].fillna(value=df_price['bed3'].mean(), inplace=True)
+df_price['bed4'].fillna(value=df_price['bed4'].mean(), inplace=True)
+df_price.head()
 #+END_SRC
 
 Now calulate an average price for 3 and 4 bedrooms house and merge that
-information into our master DataFrame =df_can=:
+information into the master DataFrame =df_can=:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
   df_price['Median Price'] = df_price[['bed3', 'bed4']].mean(axis=1)
@@ -644,116 +619,132 @@ information into our master DataFrame =df_can=:
    :CUSTOM_ID: use-foursquare-to-check-venues
    :END:
 
-Similar to previous labs covered in the course, we will use the
+Similar to previous labs covered in the course, I will use the
 Foursquare API to explore the venues around each suburb and catagarize
 them. First define some credentials and a function to reteive venue
 information for a list of suburbs:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  CLIENT_ID = 'NA1JN3DQJULNX1LDJ00TD14RADCEPYZDJ1KSZEHK1LMVATL1' # your Foursquare ID
-  CLIENT_SECRET = 'RWZA2UXX3T1CENZTGVAWJ11FQRXSKO3B50NLOCAPLBIZ0NJY' # your Foursquare Secret
-  VERSION = '20180605' # Foursquare API version
-  LIMIT = 100 # A default Foursquare API limit value
+CLIENT_ID = 'NA1JN3DQJULNX1LDJ00TD14RADCEPYZDJ1KSZEHK1LMVATL1' # your Foursquare ID
+CLIENT_SECRET = 'RWZA2UXX3T1CENZTGVAWJ11FQRXSKO3B50NLOCAPLBIZ0NJY' # your Foursquare Secret
+VERSION = '20180605' # Foursquare API version
+LIMIT = 100 # A default Foursquare API limit value
 #+END_SRC
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  def getNearbyVenues(names, latitudes, longitudes, radius=500):
-      
-      print('Obtaining venue information: ', end='')
-      venues_list=[]
-      for name, lat, lng in zip(names, latitudes, longitudes):            
-          # create the API request URL
-          url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit={}'.format(
-              CLIENT_ID, 
-              CLIENT_SECRET, 
-              VERSION, 
-              lat, 
-              lng, 
-              radius, 
-              LIMIT)
-              
-          # make the GET request
-          results = requests.get(url).json()["response"]['groups'][0]['items']
-          
-          # return only relevant information for each nearby venue
-          venues_list.append([(
-              name, 
-              lat, 
-              lng, 
-              v['venue']['name'], 
-              v['venue']['location']['lat'], 
-              v['venue']['location']['lng'],  
-              v['venue']['categories'][0]['name']) for v in results])
-          print(' .', end='')
+def getNearbyVenues(names, latitudes, longitudes, radius=500):
+    
+    print('Obtaining venue information: ', end='')
+    venues_list=[]
+    for name, lat, lng in zip(names, latitudes, longitudes):            
+        # create the API request URL
+        url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit={}'.format(
+            CLIENT_ID, 
+            CLIENT_SECRET, 
+            VERSION, 
+            lat, 
+            lng, 
+            radius, 
+            LIMIT)
+            
+        # make the GET request
+        results = requests.get(url).json()["response"]['groups'][0]['items']
+        
+        # return only relevant information for each nearby venue
+        venues_list.append([(
+            name, 
+            lat, 
+            lng, 
+            v['venue']['name'], 
+            v['venue']['location']['lat'], 
+            v['venue']['location']['lng'],  
+            v['venue']['categories'][0]['name']) for v in results])
+        print(' .', end='')
 
-      nearby_venues = pd.DataFrame([item for venue_list in venues_list for item in venue_list])
-      nearby_venues.columns = ['Suburb', 
-                    'Suburb Latitude', 
-                    'Suburb Longitude', 
-                    'Venue', 
-                    'Venue Latitude', 
-                    'Venue Longitude', 
-                    'Venue Category']
-      
-      print(' done.')
-      return(nearby_venues)
+    nearby_venues = pd.DataFrame([item for venue_list in venues_list for item in venue_list])
+    nearby_venues.columns = ['Suburb', 
+                  'Suburb Latitude', 
+                  'Suburb Longitude', 
+                  'Venue', 
+                  'Venue Latitude', 
+                  'Venue Longitude', 
+                  'Venue Category']
+    
+    print(' done.')
+    return(nearby_venues)
 #+END_SRC
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  #df_can = pd.read_csv('data/canberra_suburbs_price.csv')
-  canberra_venues = getNearbyVenues(names=df_can['Suburb'],
-                                  latitudes=df_can['Latitude'],
-                                  longitudes=df_can['Longitude'],
-                                  radius=2000
-                                  )
+#df_can = pd.read_csv('data/canberra_suburbs_price.csv')
+canberra_venues = getNearbyVenues(names=df_can['Suburb'],
+                                latitudes=df_can['Latitude'],
+                                longitudes=df_can['Longitude'],
+                                radius=2000
+                                )
 #+END_SRC
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  print('There are {} total categories.'.format(canberra_venues.shape[0]))
-  print('There are {} uniques categories.'.format(len(canberra_venues['Venue Category'].unique())))
-  canberra_venues.to_csv('data/canberra_venues.csv', index=False)
-  canberra_venues.head()
+print('There are {} total categories.'.format(canberra_venues.shape[0]))
+print('There are {} uniques categories.'.format(len(canberra_venues['Venue Category'].unique())))
+canberra_venues.to_csv('data/canberra_venues.csv', index=False)
+canberra_venues.head()
 #+END_SRC
 
-Now we count the number of venues in each suburb and merge that into
+Now I count the number of venues in each suburb and merge that into
 master DataFrame =df_can=. This colcludes the end of main data
 collection:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  df_count = canberra_venues.groupby(['Suburb'])['Suburb'].count().reset_index(name='venue count')
-  df_can = df_can.merge(df_count, left_on='Suburb', right_on='Suburb', how='left').fillna(0)
-  df_can.to_csv('data/canberra_suburbs_venues.csv', index=False)
-  df_can.head()
+df_count = canberra_venues.groupby(['Suburb'])['Suburb'].count().reset_index(name='venue count')
+df_can = df_can.merge(df_count, left_on='Suburb', right_on='Suburb', how='left').fillna(0)
+df_can.to_csv('data/canberra_suburbs_venues.csv', index=False)
+df_can.head()
 #+END_SRC
+
+The master DataFrame =df_can= now looks like below:
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :pandoc t
+df_can.head()
+#+END_SRC
+
+#+results:
+:RESULTS:
+|   | Suburb  | Towncenter     | Postcode | Latitude   | Longitude  | Nearest  | Median Price | venue count |
+|---+---------+----------------+----------+------------+------------+----------+--------------+-------------|
+| 0 | Acton   | North Canberra | 2601     | -35.285232 | 149.112968 | 2.921057 | 3044.733334  | 100.0       |
+| 1 | Ainslie | North Canberra | 2602     | -35.262195 | 149.147880 | 1.413531 | 14295.000000 | 61.0        |
+| 2 | Amaroo  | Gungahlin      | 2914     | -35.169587 | 149.128021 | 1.106799 | 726.000000   | 38.0        |
+| 3 | Aranda  | Belconnen      | 2614     | -35.258055 | 149.080426 | 4.783948 | 3044.733334  | 29.0        |
+| 4 | Banks   | Tuggeranong    | 2906     | -35.471889 | 149.099657 | 5.702031 | 655.000000   | 9.0         |
+:END:
 
 *** Analyze venues in each suburb
     :PROPERTIES:
     :CUSTOM_ID: analyze-venues-in-each-suburb
     :END:
 
-In this part, we find the top 5 most common venues in each suburb,
+In this part, I find the top 5 most common venues in each suburb,
 following the examples from previous labs, and store them as an
-additional DataFrame =df_can= in addition to our master DataFrame:
+additional DataFrame =df_can= in addition to the master DataFrame:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  canberra_venues = pd.read_csv('data/canberra_venues.csv')
+canberra_venues = pd.read_csv('data/canberra_venues.csv')
 
-  # one hot encoding
-  canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
+# one hot encoding
+canberra_onehot = pd.get_dummies(canberra_venues[['Venue Category']], prefix="", prefix_sep="")
 
-  # add neighborhood column back to dataframe
-  canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
+# add neighborhood column back to dataframe
+canberra_onehot['Suburb'] = canberra_venues['Suburb'] 
 
-  # move neighborhood column to the first column
-  fixed_columns = [canberra_onehot.columns[-1]] + list(canberra_onehot.columns[:-1])
-  canberra_onehot = canberra_onehot[fixed_columns]
+# move neighborhood column to the first column
+fixed_columns = [canberra_onehot.columns[-1]] + list(canberra_onehot.columns[:-1])
+canberra_onehot = canberra_onehot[fixed_columns]
 
-  canberra_onehot.head()
+canberra_onehot.head()
 #+END_SRC
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
-  canberra_grouped.shape
+canberra_grouped = canberra_onehot.groupby('Suburb').mean().reset_index()
+canberra_grouped.shape
 #+END_SRC
 
 Now let's create the new dataframe and display the top 10 venues for
@@ -761,58 +752,59 @@ each suburb by writing a function to sort the venues in descending
 order:
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  def return_most_common_venues(row, num_top_venues):
-      row_categories = row.iloc[1:]
-      row_categories_sorted = row_categories.sort_values(ascending=False)
-      
-      return row_categories_sorted.index.values[0:num_top_venues]
+def return_most_common_venues(row, num_top_venues):
+    row_categories = row.iloc[1:]
+    row_categories_sorted = row_categories.sort_values(ascending=False)
+    
+    return row_categories_sorted.index.values[0:num_top_venues]
 #+END_SRC
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
-  num_top_venues = 10
+num_top_venues = 10
 
-  indicators = ['st', 'nd', 'rd']
+indicators = ['st', 'nd', 'rd']
 
-  # create columns according to number of top venues
-  columns = ['Suburb']
-  for ind in np.arange(num_top_venues):
-      try:
-          columns.append('{}{} Most Common Venue'.format(ind+1, indicators[ind]))
-      except:
-          columns.append('{}th Most Common Venue'.format(ind+1))
+# create columns according to number of top venues
+columns = ['Suburb']
+for ind in np.arange(num_top_venues):
+    try:
+        columns.append('{}{} Most Common Venue'.format(ind+1, indicators[ind]))
+    except:
+        columns.append('{}th Most Common Venue'.format(ind+1))
 
-  # create a new dataframe
-  df_venues = pd.DataFrame(columns=columns)
-  df_venues['Suburb'] = canberra_grouped['Suburb']
+# create a new dataframe
+df_venues = pd.DataFrame(columns=columns)
+df_venues['Suburb'] = canberra_grouped['Suburb']
 
-  for ind in np.arange(canberra_grouped.shape[0]):
-      df_venues.iloc[ind, 1:] = return_most_common_venues(canberra_grouped.iloc[ind, :], num_top_venues)
+for ind in np.arange(canberra_grouped.shape[0]):
+    df_venues.iloc[ind, 1:] = return_most_common_venues(canberra_grouped.iloc[ind, :], num_top_venues)
 
-  df_venues.to_csv('data/canberra_venues_sorted.csv', index=False)
-  df_venues.head()
+df_venues.to_csv('data/canberra_venues_sorted.csv', index=False)
+df_venues.head()
 #+END_SRC
+
 
 * Methodology
   :PROPERTIES:
   :CUSTOM_ID: methodology-
   :END:
-In this study, we will try to categrize suburbs into different groups
+In this study, I will try to categrize suburbs into different groups
 with similar profiles based on different metrics. In the previous data
-collection stage, we have assembed two Pandas DataFrames: one consists
+collection stage, I have assembed two Pandas DataFrames: one consists
 of the meian price for 3 to 4 bedroom houses, distance to closest
 towncenter and total number of venues in each suburb within 2km. Whereas
 the second DataFrame consists of the top 10 most common venues in each
 suburb.
 
-In the next analysis step, we will first *check some statistics* of our
+In the next analysis step, I will first *check some statistics* of our
 dataset, for example, histogram of house prices and cloest distance to
-towncenter. Then we perform unsupervised *k-means clustering* on these
-two datasets to cluster and segment suburbs. After clustering, we will
+towncenter. Then I perform unsupervised *k-means clustering* on these
+two datasets to cluster and segment suburbs. After clustering, I will
 visiualize the clustered suburbs using Folium. *Choropleth* maps are
 expected to be used to assist visulisation of venue density or price
 range etc.
 
-By the end of the study, we should have well segmented suburbs and be
+By the end of the study, I should have well segmented suburbs and be
 able to give recommendations to the young family seeking for properties
 according to different criteria.
 
@@ -834,11 +826,11 @@ df_venues = pd.read_csv('data/canberra_venues_sorted.csv')
    :CUSTOM_ID: get-some-statitics
    :END:
 
-Let's first perform some basic explanatory data analysis on our main
-DataFrame. We will explore statitics of median house price, number of
+Let's first perform some basic explanatory data analysis on the main
+DataFrame. I will explore statitics of median house price, number of
 venues and distance to nearest towncenters for each suburb grouped by
 their governing towncenters. Pandas boxplot is used instead of the
-seaborn library but with adjusted style:
+seaborn library but with adjusted style.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
 # We will use the boxplot from Pandas as it provides groupby by default,
@@ -919,8 +911,7 @@ ax3.tick_params(axis="x", rotation=45)
 #+results:
 [[file:figures/suburb_statistics_towncenters.jpg]]
 
-
-From the above 3 plots, we can see that there are more venues in North
+From the above 3 plots, I can see that there are more venues in North
 and South Canberras and the house price there are also much higher than
 suburbs in other towncenters. The distance for suburbs to closed
 towncenter however does not present a significant difference which
@@ -932,8 +923,8 @@ will use k-means to cluster all the suburbs.
    :CUSTOM_ID: k-means-clustering-on-master-dataset
    :END:
 
-In this section, we will use k-means to perform unsupervised clustering
-on our master dataset =df_can= and the venue category dataset
+In this section, I will use k-means to perform unsupervised clustering
+on the master dataset =df_can= and the venue category dataset
 =df_venues=. To find the optimal number of clusters, the elbow method
 will be used.
 
@@ -958,10 +949,10 @@ clus_data.shape
 #+results:
 | 112 | 3 |
 
-To find optimal cluster number, we iterate from 1 to 10 and find the
+To find optimal cluster number, I iterate from 1 to 10 and find the
 turning point:
 
-#+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
+#+BEGIN_SRC jupyter-python :session py3 :async yes :exports results :results file
 distortions = []
 K = range(1,10)
 for k in K:
@@ -972,16 +963,16 @@ for k in K:
 #I choose correlation instaed of euclidean because the canberra function gives me more clear view of elbow break point.
 
 # Plot the elbow
-plt.plot(K, distortions, 'bx-')
-plt.xlabel('k')
-plt.ylabel('Distortion')
-plt.title('The Elbow Method showing the optimal k')
-plt.show()
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.plot(K, distortions, 'bx-')
+ax.set_xlabel('k')
+ax.set_ylabel('Distortion')
+ax.set_title('The Elbow Method showing the optimal k')
+plt.savefig('figures/kmeans-optimal-master.pdf')
 #+END_SRC
 
 #+results:
 [[file:./.ob-jupyter/c0eee727770411c6226540bf7e22b6aed5a8986e.png]]
-
 
 So 3 would be the optimal number of clusters and let's rerun the
 clustering:
@@ -2578,7 +2569,7 @@ ax3.tick_params(axis="x", rotation=45)
 Now let's create a Folium map and add the clusterd suburbs together with
 towncenters. It is clear that suburbs in North and South Canberra have
 been segmented into one category as these suburnbs. The other category
-are those very close to town centers while the rest suburbs make up the
+are those very close to towncenters while the rest suburbs make up the
 last category.
 
 #+BEGIN_SRC jupyter-python :session py3 :async yes :exports none
@@ -2751,9 +2742,9 @@ Using the main dataset, most cluster 1 suburbs are located at the inner
 north or south Canberra. While these suburbs are well established with
 various venues, their price are also much higher than other suburbs.
 Suburbs in cluster 2 have the lowest price, but meanwhile they also do
-not have as many venues and the travel distance to town centers are
+not have as many venues and the travel distance to towncenters are
 higher. Cluster 0 suburbs seem to have the best balance for all three
-factors and not superisingly they are located around other town centers
+factors and not superisingly they are located around other towncenters
 apart from the North and South Canberra.
 
 Clustering results using venue category information are even more
@@ -2762,10 +2753,10 @@ Tuggeranoon) again are clustered into one segment while suburbs in other
 north towns (Belconnen and Gungahlin) are segmented together. Suburbs in
 Woden and Westen Creek share some similarities unlike other towns. These
 difference might very well becasue of the developmnet shift from South
-Canberra to North Canberras. Due to the scope of the study, we will not
+Canberra to North Canberras. Due to the scope of the study, I will not
 furth explore the behind reasons.
 
-Based on the above analysis, hopefully our young family should now have
+Based on the above analysis, hopefully our young family now have
 more information to refere to when they finnaly decide which suburb to
 settle in.
 
